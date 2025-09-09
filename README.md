@@ -12,6 +12,8 @@
 10. [Prototypes](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#prototypes)
 11. [Classes and constructors](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#class-and-constructors)
 12. [Event Loop](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#event-loop)
+13. [Async and await](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#async-and-await)
+
 
 # Scope
 
@@ -868,6 +870,45 @@ setTimeout(() => {
   console.log(data.getStatus());
   console.log(data.getStatus.call(this));
 });
+```
+# Async and await
+
+async Function
+
+- Declaring a function with async makes it return a Promise, no matter what.
+- If the function returns a value, JavaScript wraps it in a resolved Promise.
+- If it throws an error, JavaScript wraps it in a rejected Promise.
+
+```javascript
+async function greet() {
+  return "Hello World";
+}
+
+greet().then(console.log); // "Hello World"
+```
+await Expression
+
+- Can only be used inside an async function.
+- Pauses execution of the function until the Promise settles.
+- Returns the resolved value if the Promise is fulfilled.
+- Throws an error if the Promise is rejected.
+
+```javascript
+async function riskyOperation() {
+  throw new Error("Something went wrong!");
+}
+
+async function run() {
+  try {
+    const res = await riskyOperation();
+    console.log(res);
+  } catch (err) {
+    console.error("Caught error:", err.message);
+  }
+}
+
+run();
+// Output: Caught error: Something went wrong!
 ```
 
 # Promises
