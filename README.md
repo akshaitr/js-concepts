@@ -1,19 +1,49 @@
 # Topics
 
-1. [Scope](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#scope)
-2. [Functions](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#functions)
-3. [Closures](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#closures)
-4. [Objects](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#objects)
-5. [Binding](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#binding)
-6. [Promises](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#promises)
-7. [Event Propagation](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#event-propagation)
-8. [Debouncing and throttling](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#debouncing-and-throttling)
-9. [Compose and Pipe](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#compose-and-pipe)
-10. [Prototypes](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#prototypes)
-11. [Classes and constructors](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#class-and-constructors)
-12. [Event Loop](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#event-loop)
-13. [Async and await](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#async-and-await)
+1. [Execution Context](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#execution-context)
+2. [Call Stack](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#call-stack)
+3. [Scope](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#scope)
+4. [Functions](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#functions)
+5. [Closures](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#closures)
+6. [Objects](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#objects)
+7. [Binding](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#binding)
+8. [Promises](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#promises)
+9. [Event Propagation](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#event-propagation)
+10. [Debouncing and throttling](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#debouncing-and-throttling)
+11. [Compose and Pipe](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#compose-and-pipe)
+12. [Prototypes](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#prototypes)
+13. [Classes and constructors](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#class-and-constructors)
+14. [Event Loop](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#event-loop)
+15. [Async and await](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#async-and-await)
 
+# Execution Context
+
+Whenever JavaScript code runs, it needs an environment that keeps track of variables, functions, and the current line being executed.
+That environment is called the Execution Context.
+
+There are mainly two types:
+
+- Global Execution Context (GEC) → created when you first run a JS file.<br/>
+  Stores global variables, functions, and the this keyword (in browsers this = window).
+
+- Function Execution Context (FEC) → created each time a function is called.<br/>
+  Each function call gets its own context (variables, arguments, this, etc.)
+
+# Call Stack
+
+Think of it as a stack of plates🍽️
+- The bottom plate is the global execution context.
+- Every time a function is called → a new plate (execution context) is added on top.
+- When the function finishes → the plate is removed.
+
+That’s why it’s called a stack (LIFO – Last In, First Out).
+
+📢 NOTES: 
+
+> `console.trace()` is like asking JavaScript: "Show me how we got here in the call stack."<br/>
+> When console.trace() is executed:
+> - It prints a stack trace in your browser’s console (or Node.js terminal).
+> - The trace shows the sequence of function calls that led to this point.
 
 # Scope
 
