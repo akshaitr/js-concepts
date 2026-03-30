@@ -18,15 +18,14 @@
 
 # Execution Context
 
-Whenever JavaScript code runs, it needs an environment that keeps track of
-variables, functions, and the current line being executed.
+Whenever JavaScript code runs, it needs an environment that keeps track of variables, functions, and the current line being executed.
 That environment is called the Execution Context.
 
 There are mainly two types:
 
-- Global Execution Context (GEC) → created when you first run a JS file.
-  Stores global variables, functions, and the this keyword (in browsers this = window).
-- Function Execution Context (FEC) → created each time a function is called.
+- Global Execution Context (GEC) → created when you first run a JS file.</br>
+  Stores global variables, functions, and the `this` keyword (in browsers `this` = `window`).
+- Function Execution Context (FEC) → created each time a function is called.</br>
   Each function call gets its own context (variables, arguments, this, etc.)
 
 ### What does an execution context contain?
@@ -88,50 +87,89 @@ greet();
 - `console.log("Hello Akshai")` → finds `message` locally, finds `name` via scope chain
 - Function finishes → FEC is destroyed
 
+# Call Stack
+
+Think of it as a stack of plates🍽️
+
+- The bottom plate is the global execution context.
+- Every time a function is called → a new plate (execution context) is added on top.
+- When the function finishes → the plate is removed.
+
+That's why it's called a stack (LIFO – Last In, First Out).
+```javascript
+function multiply(a, b) {
+  return a * b;
+}
+
+function square(n) {
+  return multiply(n, n);
+}
+
+function printSquare(n) {
+  var result = square(n);
+  console.log(result);
+}
+
+printSquare(5);
+```
+
+**Call stack walkthrough:**
+```
+Step 1: Program starts
+| GEC                |  ← bottom plate
+
+Step 2: printSquare(5) is called
+| printSquare(5)     |
+| GEC                |
+
+Step 3: square(5) is called inside printSquare
+| square(5)          |
+| printSquare(5)     |
+| GEC                |
+
+Step 4: multiply(5, 5) is called inside square
+| multiply(5, 5)     |
+| square(5)          |
+| printSquare(5)     |
+| GEC                |
+
+Step 5: multiply returns 25 → popped off
+| square(5)          |
+| printSquare(5)     |
+| GEC                |
+
+Step 6: square returns 25 → popped off
+| printSquare(5)     |
+| GEC                |
+
+Step 7: console.log(25) runs, printSquare finishes → popped off
+| GEC                |
+
+Step 8: Program ends → GEC is removed
+| (empty)            |
+```
+
+### Stack Overflow
+
+When a function calls itself infinitely (or the call stack exceeds its limit), you get a stack overflow error.
+```javascript
+function recursive() {
+  recursive();
+}
+
+recursive(); // Uncaught RangeError: Maximum call stack size exceeded
+```
+
+This is why every recursive function needs a base case — a condition that stops the recursion before the stack overflows.
+
 📢 NOTES:
+
+> JavaScript is single-threaded, meaning it has only one call stack. It can execute one thing at a time. This is why long-running synchronous operations block the UI — they sit on the call stack and prevent anything else from running.
 
 > `console.trace()` is like asking JavaScript: "Show me how we got here in the call stack."
 > When console.trace() is executed:
 >
 > - It prints a stack trace in your browser's console (or Node.js terminal).
-> - The trace shows the sequence of function calls that led to this point.
-```javascript
-function first() {
-  second();
-}
-
-function second() {
-  third();
-}
-
-function third() {
-  console.trace("Trace:");
-}
-
-first();
-
-// Output:
-// Trace:
-//   third
-//   second
-//   first
-//   (anonymous) ← this is the GEC
-```
-
-# Call Stack
-
-Think of it as a stack of plates🍽️
-- The bottom plate is the global execution context.
-- Every time a function is called → a new plate (execution context) is added on top.
-- When the function finishes → the plate is removed.
-
-That’s why it’s called a stack (LIFO – Last In, First Out).
-
-📢 NOTES: 
-
-> `console.trace()` is like asking JavaScript: "Show me how we got here in the call stack."<br/>
-> When console.trace() is executed:
-> - It prints a stack trace in your browser’s console (or Node.js terminal).
 > - The trace shows the sequence of function calls that led to this point.
 
 # Scope
