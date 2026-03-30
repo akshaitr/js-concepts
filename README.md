@@ -18,16 +18,105 @@
 
 # Execution Context
 
-Whenever JavaScript code runs, it needs an environment that keeps track of variables, functions, and the current line being executed.
+Whenever JavaScript code runs, it needs an environment that keeps track of
+variables, functions, and the current line being executed.
 That environment is called the Execution Context.
 
 There are mainly two types:
 
-- Global Execution Context (GEC) → created when you first run a JS file.<br/>
+- Global Execution Context (GEC) → created when you first run a JS file.
   Stores global variables, functions, and the this keyword (in browsers this = window).
-
-- Function Execution Context (FEC) → created each time a function is called.<br/>
+- Function Execution Context (FEC) → created each time a function is called.
   Each function call gets its own context (variables, arguments, this, etc.)
+
+### What does an execution context contain?
+
+Every execution context has three components:
+
+1. **Variable Environment** — stores variables and function declarations.
+   During the creation phase, `var` variables are initialized to `undefined`
+   and `let`/`const` go to the temporal dead zone.
+   Function declarations are hoisted completely.
+
+2. **Scope Chain** — a reference to the outer lexical environment.
+   If a variable isn't found in the current scope,
+   JavaScript follows this chain outward until it reaches the global scope.
+
+3. **this binding** — determines what `this` refers to in that context.
+   In GEC (browser): `this` = `window`
+   In GEC (Node.js): `this` = `{}` (empty object in modules)
+   In FEC: depends on how the function is called (see Binding section)
+
+### Creation Phase vs Execution Phase
+
+When an execution context is created, it goes through two phases:
+
+**Creation phase** — JS scans the code and sets up the variable environment.
+Variables are allocated memory but not yet assigned their values.
+
+**Execution phase** — JS runs the code line by line,
+assigning values and executing function calls.
+```javascript
+var name = "Akshai";
+
+function greet() {
+  var message = "Hello";
+  console.log(message + " " + name);
+}
+
+greet();
+```
+
+**Step-by-step walkthrough:**
+
+**1. GEC Creation Phase:**
+- `name` → `undefined`
+- `greet` → function definition (hoisted completely)
+- `this` → `window`
+
+**2. GEC Execution Phase:**
+- `name` = `"Akshai"`
+- `greet()` is called → new FEC is created
+
+**3. FEC (greet) Creation Phase:**
+- `message` → `undefined`
+- Scope chain → points to GEC (outer environment)
+- `this` → `window` (regular function call)
+
+**4. FEC (greet) Execution Phase:**
+- `message` = `"Hello"`
+- `console.log("Hello Akshai")` → finds `message` locally, finds `name` via scope chain
+- Function finishes → FEC is destroyed
+
+📢 NOTES:
+
+> `console.trace()` is like asking JavaScript: "Show me how we got here in the call stack."
+> When console.trace() is executed:
+>
+> - It prints a stack trace in your browser's console (or Node.js terminal).
+> - The trace shows the sequence of function calls that led to this point.
+```javascript
+function first() {
+  second();
+}
+
+function second() {
+  third();
+}
+
+function third() {
+  console.trace("Trace:");
+}
+
+first();
+
+// Output:
+// Trace:
+//   third
+//   second
+//   first
+//   (anonymous) ← this is the GEC
+```
 
 # Call Stack
 
