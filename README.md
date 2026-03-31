@@ -376,48 +376,6 @@ const double = multiplier(2);
 double(5); // 10
 ```
 
-${\textsf{\color{khaki}Guess\ the\ output}}$
-```javascript
-(function (x) {
-  return (function (y) {
-    console.log(x);
-  })(2);
-})(1);
-```
-
-${\textsf{\color{khaki}Guess\ the\ output}}$
-```javascript
-for (var i = 0; i < 5; i++) {
-  setTimeout(function () {
-    console.log(i);
-  }, i * 1000);
-}
-```
-
-${\textsf{\color{khaki}Guess\ the\ output}}$
-```javascript
-for (let i = 0; i < 5; i++) {
-  setTimeout(function () {
-    console.log(i);
-  }, i * 1000);
-}
-```
-
-${\textsf{\color{khaki}Guess\ the\ output}}$
-```javascript
-var num = 21;
-var func = function() {
-  console.log(num);
-  var num = 11;
-}
-
-func();
-```
-
-📢 NOTES: 
-
-> Unlike variables, function definitions get hoisted completely
-
 ### Parameters vs Arguments
 
 A parameter is a variable listed in the function definition. It is a placeholder for the value the function expects to receive.
@@ -624,6 +582,48 @@ console.log(secret); // ❌ ReferenceError — not accessible outside
   console.log("I run immediately");
 })();
 ```
+
+${\textsf{\color{khaki}Guess\ the\ output}}$
+```javascript
+(function (x) {
+  return (function (y) {
+    console.log(x);
+  })(2);
+})(1);
+```
+
+${\textsf{\color{khaki}Guess\ the\ output}}$
+```javascript
+for (var i = 0; i < 5; i++) {
+  setTimeout(function () {
+    console.log(i);
+  }, i * 1000);
+}
+```
+
+${\textsf{\color{khaki}Guess\ the\ output}}$
+```javascript
+for (let i = 0; i < 5; i++) {
+  setTimeout(function () {
+    console.log(i);
+  }, i * 1000);
+}
+```
+
+${\textsf{\color{khaki}Guess\ the\ output}}$
+```javascript
+var num = 21;
+var func = function() {
+  console.log(num);
+  var num = 11;
+}
+
+func();
+```
+
+📢 NOTES: 
+
+> Unlike variables, function definitions get hoisted completely
 
 # Closures(Function + its lexical environment = Closure)
 
