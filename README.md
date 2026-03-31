@@ -176,61 +176,154 @@ This is why every recursive function needs a base case — a condition that stop
 
 A scope is a certain region of a program where a defined variable exists and can be recognized. Beyond that it cannot be recognized.
 There are three types of scopes:
+
 - Global scope
 - Function scope
 - Block scope
+```javascript
+// Global scope — accessible everywhere
+var globalVar = "I'm global";
 
+function demo() {
+  // Function scope — accessible only inside this function
+  var functionVar = "I'm function scoped";
 
-📢 NOTES: 
+  if (true) {
+    // Block scope — accessible only inside this block
+    let blockVar = "I'm block scoped";
+    const alsoBlock = "Me too";
+    var notBlock = "I'm actually function scoped!";
 
-> `var` is function scoped
+    console.log(blockVar);    // ✅
+    console.log(functionVar); // ✅
+    console.log(globalVar);   // ✅
+  }
 
-> `let` and `const` are block scoped
+  console.log(notBlock);      // ✅ var ignores block scope
+  console.log(blockVar);      // ❌ ReferenceError
+}
+
+console.log(functionVar);     // ❌ ReferenceError
+```
+
+📢 NOTES:
+
+> `var` is function scoped — it ignores block boundaries like `if`, `for`, `while`. It is only contained by functions.
+
+> `let` and `const` are block scoped — they are contained by any `{}` block including `if`, `for`, `while`, and plain blocks.
 
 ### Variable Shadowing
 
 Variable shadowing occurs when a variable declared within a certain scope has the same name as a variable declared in an outer scope.
-
 ```javascript
 let num = 10;
 
 function printNum() {
-  let num = 20;
-  console.log(num);
+  let num = 20;     // shadows the outer num
+  console.log(num); // 20
 }
 
-console.log(num);
+printNum();
+console.log(num);   // 10 — outer num is untouched
 ```
 
 While shadowing a variable, it should not cross the boundary of the scope.
-
 ```javascript
 let num = 10;
 
-if(true) {
-  var num = 20;
+if (true) {
+  var num = 20; // ❌ SyntaxError: Identifier 'num' has already been declared
 }
 ```
-This is is known as illegal shadowing and it will give the error as ${\textsf{\color{orange}variable\ is\ already\ defined}}$.
+
+This is known as illegal shadowing. You cannot shadow a `let` variable with `var` because `var` escapes the block and tries to redeclare in the same function scope where `let` already exists. However the reverse is fine:
+```javascript
+var num = 10;
+
+if (true) {
+  let num = 20; // ✅ This is fine — let stays inside the block
+  console.log(num); // 20
+}
+
+console.log(num); // 10
+```
 
 ### Declaration
 
-- `var` can be declared as many times as we want
+- `var` can be redeclared in the same scope
 - `let` and `const` cannot be redeclared in the same scope
 - `var` and `let` can be declared without initialization
 - `const` cannot be declared without initialization
-- `var` and `let` can be reinitialized
-- `const` cannot be updated
+- `var` and `let` can be reassigned
+- `const` cannot be reassigned
+
+📢 NOTES:
+
+> `const` prevents reassignment, not mutation. A `const` object or array can still have its contents changed.
+```javascript
+const user = { name: "Akshai" };
+user.name = "Kumar";  // ✅ mutation is allowed
+user = { name: "New" }; // ❌ TypeError: Assignment to constant variable
+```
 
 ### Hoisting
 
 When a variable is declared in JavaScript, it gets hoisted to the top of its scope, meaning the declaration happens first regardless of where the actual code is.
+```javascript
+console.log(a); // undefined — declared but not initialized
+console.log(b); // ❌ ReferenceError — in temporal dead zone
+console.log(c); // ❌ ReferenceError — in temporal dead zone
 
-📢 NOTES: 
+var a = 10;
+let b = 20;
+const c = 30;
+```
+
+📢 NOTES:
 
 > `var` variables are hoisted and initialized to `undefined`
 
->  `let` and `const` variables are hoisted but not initialized until the line they are declared. They are said to be hoisted to temporal dead zone. (i.e, they are in the scope but not yet declared)
+> `let` and `const` variables are hoisted but not initialized until the line they are declared. They are said to be hoisted to temporal dead zone. (i.e, they are in the scope but not yet declared)
+
+> Functions declared with the `function` keyword are hoisted completely — both the declaration and the body. Function expressions and arrow functions follow the hoisting rules of their variable declaration (`var`, `let`, or `const`).
+```javascript
+greet();       // ✅ "Hello" — function declaration is fully hoisted
+sayBye();      // ❌ TypeError — sayBye is undefined at this point
+
+function greet() {
+  console.log("Hello");
+}
+
+var sayBye = function() {
+  console.log("Bye");
+};
+```
+
+### Scope Chain
+
+When JavaScript encounters a variable, it first looks in the current scope. If it doesn't find it, it moves to the outer scope, then the next outer scope, until it reaches the global scope. If it's not found anywhere, it throws a ReferenceError. This lookup process is called the scope chain.
+```javascript
+var a = 10;
+
+function outer() {
+  var b = 20;
+
+  function inner() {
+    var c = 30;
+    console.log(a + b + c); // 60
+    // c found locally
+    // b found in outer's scope
+    // a found in global scope
+  }
+
+  inner();
+}
+
+outer();
+```
+```
+inner() scope  →  outer() scope  →  global scope  →  not found? ReferenceError
+```
 
 # Functions
 
