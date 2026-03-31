@@ -343,8 +343,38 @@ const square = function(num) {
 
 When you store a function definition inside a variable, it is called a function expression.
 
+```javascript
+const square = (num) => num * num;
+```
+
+This is an arrow function, introduced in ES6. When the function body is a single expression, you can omit the `{}` and `return` keyword.
+
+### First-class functions
+
 In languages like JavaScript, functions can be treated as any other variables. Functions can be passed as arguments to other functions, can be returned by another function and can be assigned as values to a variable. Such functions are called first-class functions.
 
+```javascript
+// Assigned to a variable
+const greet = function(name) {
+  return `Hello ${name}`;
+};
+
+// Passed as an argument
+function execute(fn, value) {
+  return fn(value);
+}
+execute(greet, "Akshai"); // "Hello Akshai"
+
+// Returned from a function
+function multiplier(factor) {
+  return function(num) {
+    return num * factor;
+  };
+}
+
+const double = multiplier(2);
+double(5); // 10
+```
 
 ${\textsf{\color{khaki}Guess\ the\ output}}$
 ```javascript
@@ -384,44 +414,91 @@ var func = function() {
 func();
 ```
 
-
 📢 NOTES: 
 
 > Unlike variables, function definitions get hoisted completely
 
 ### Parameters vs Arguments
 
-A parameter is a variable that is listed in the function definition. It represents a value that the function expects to receive when it is called. Parameters are placeholders that define the type and name of the value that will be passed into the function.
+A parameter is a variable listed in the function definition. It is a placeholder for the value the function expects to receive.
 
+An argument is the actual value passed into the function when it is called.
 ```javascript
-function addNumbers(num1, num2) {
+function addNumbers(num1, num2) {  // num1, num2 are parameters
   return num1 + num2;
 }
+
+let result = addNumbers(5, 10);    // 5, 10 are arguments
 ```
-In the example above, num1 and num2 are parameters of the addNumbers function.
 
-An argument, on the other hand, is the actual value that is passed into a function when it is called. It is the concrete value that is assigned to a parameter.
+### Default Parameters
 
+When a parameter is not passed, it defaults to `undefined`. You can set your own defaults:
 ```javascript
-let result = addNumbers(5, 10);
+function greet(name = "stranger") {
+  console.log(`Hello ${name}`);
+}
+
+greet("Akshai"); // "Hello Akshai"
+greet();         // "Hello stranger"
 ```
-In the example above, 5 and 10 are arguments that are passed as values to the addNumbers function.
+
+📢 NOTES:
+
+> Default parameters are evaluated at call time, not at definition time. This means if you use an object or array as a default, a new one is created for each call.
+```javascript
+function addToList(item, list = []) {
+  list.push(item);
+  return list;
+}
+
+addToList(1); // [1]
+addToList(2); // [2], NOT [1, 2] — a fresh [] is created each time
+```
 
 ### Spread vs Rest operators
 
-- The spread operator, denoted by three consecutive dots (...), is primarily used for expanding iterables like arrays into individual elements. This operator allows us to efficiently merge, copy, or pass array elements to functions without explicitly iterating through them
-- Spread Operator Use Cases
-  - Combining arrays
-  - Passing arguments to functions
-  - Copying arrays
-- While the spread operator expands elements, the rest operator condenses them into a single entity within function parameters or array destructuring. It collects remaining elements into a designated variable, facilitating flexible function definitions and array manipulation
-- Rest Operator Use Cases
-  - Handling variable-length function arguments
-  - Array destructuring
- 
-📢 NOTES: 
+The spread operator (`...`) expands iterables into individual elements:
+```javascript
+// Combining arrays
+const a = [1, 2];
+const b = [3, 4];
+const combined = [...a, ...b]; // [1, 2, 3, 4]
 
-> A rest parameter must be the last parameter in a function definition. This is because the rest parameter collects all the remaining arguments passed to the function, so it doesn't make sense to have any parameters after it.
+// Copying arrays (shallow copy)
+const original = [1, 2, 3];
+const copy = [...original];
+
+// Passing arguments to functions
+const nums = [5, 10, 15];
+Math.max(...nums); // 15
+
+// Copying/merging objects
+const user = { name: "Akshai" };
+const admin = { ...user, role: "admin" }; // { name: "Akshai", role: "admin" }
+```
+
+The rest operator (`...`) collects remaining elements into a single variable:
+```javascript
+// Variable-length function arguments
+function sum(...numbers) {
+  return numbers.reduce((total, num) => total + num, 0);
+}
+
+sum(1, 2, 3, 4); // 10
+
+// Array destructuring
+const [first, second, ...remaining] = [1, 2, 3, 4, 5];
+// first = 1, second = 2, remaining = [3, 4, 5]
+
+// Object destructuring
+const { name, ...rest } = { name: "Akshai", age: 28, city: "Chennai" };
+// name = "Akshai", rest = { age: 28, city: "Chennai" }
+```
+
+📢 NOTES:
+
+> A rest parameter must be the last parameter in a function definition. This is because the rest parameter collects all the remaining arguments, so it doesn't make sense to have any parameters after it.
 
 ${\textsf{\color{khaki}Guess\ the\ output}}$
 ```javascript
@@ -432,206 +509,122 @@ const printData = (a, ...numbers, x, y) => {
 printData(5, 6, 7, 8);
 ```
 
+> ❌ SyntaxError: Rest parameter must be last formal parameter
+
 ### Callback functions
 
 A callback function is a function passed into another function as an argument, which is then invoked inside the outer function to complete some kind of routine or action.
 
-There are two ways in which the callback may be called: synchronous and asynchronous. Synchronous callbacks are called immediately after the invocation of the outer function, with no intervening asynchronous tasks, while asynchronous callbacks are called at some point later, after an asynchronous operation has completed. Examples of synchronous callbacks include the callbacks passed to Array.prototype.map(), Array.prototype.forEach(), etc. Examples of asynchronous callbacks include the callbacks passed to setTimeout() and Promise.prototype.then().
+There are two ways in which the callback may be called: synchronous and asynchronous.
+
+**Synchronous callbacks** are called immediately during the execution of the outer function.
+```javascript
+const numbers = [1, 2, 3];
+
+numbers.forEach(function(num) {
+  console.log(num); // called immediately for each element
+});
+```
+
+**Asynchronous callbacks** are called at some point later, after an asynchronous operation has completed.
+```javascript
+setTimeout(function() {
+  console.log("This runs later"); // called after 1 second
+}, 1000);
+```
 
 ### Arrow function vs Regular function
 
-The ordinary way of declaring functions in JavaScript is to use the function keyword. 
+|  | Regular function | Arrow function |
+|---|---|---|
+| `this` binding | Dynamic — depends on how it's called | Lexical — inherits from surrounding scope |
+| `arguments` object | ✅ Available | ❌ Not available (use rest params) |
+| Can be a constructor | ✅ Works with `new` | ❌ Cannot use `new` |
+| Hoisting | ✅ Declarations are hoisted | ❌ Follows variable hoisting rules |
+| Duplicate params | ✅ Allowed in non-strict mode | ❌ Never allowed |
+| Implicit strict mode | ❌ No | ✅ Yes |
 
-```javascript
-function sayHello(name) {
-  return `Hello ${name}`;
-}
-```
-
-Arrow functions were introduced with ECMAScript 6 (ES6). They give you a more concise way of defining functions in JavaScript.
-
-```javascript
-const sayHello = (name) => {
-  return `Hello ${name}`;
-};
-```
-
-- We can access all the arguments passed to a regular function using the `arguments` object. To access the arguments passed to an arrow function, we can use the rest parameter syntax (`...`).
-```javascript
-function regularFunc() {
-  console.log(arguments);
-}
-
-regularFunc(1, 2, 3);
-```
-```javascript
-const arrowFunc = () => {
-  console.log(arguments); // ❌ ReferenceError
-};
-
-arrowFunc(1, 2, 3);
-```  
-- When a regular function has duplicate names in the parameters, the last parameter with the duplicate name will take precedence. But in "strict mode", using a duplicate named parameter will result in a syntax error. Arrow functions don't allow for the same parameter name to be used more than once in the parameter list. Doing so will result in a syntax error.
-
-```javascript
-function demo(a, b, a) {
-  console.log(a); // Logs the second 'a'
-}
-
-demo(1, 2, 3);
-```
-```javascript
-"use strict";
-
-function demo(a, b, a) {
-  console.log(a);
-}
-```
-```javascript
-const demo = (a, b, a) => {
-  console.log(a);
-};
-```
-Why?
-Arrow functions are always in strict mode, implicitly.
-Duplicate parameter names are not allowed.
-
-- Regular functions are hoisted to the top. And you can access and call them even before they are declared. Arrow functions, on the other hand, cannot be accessed before they are initialised.
+**`this` binding — the most important difference:**
 ```javascript
 function Timer() {
   this.seconds = 0;
 
-  // Regular function — loses `this`
-  setInterval(function () {
-    this.seconds++; // ❌ `this` is now window (or undefined)
+  // Regular function — creates its own `this`
+  setInterval(function() {
+    this.seconds++; // ❌ `this` is window, not Timer
     console.log(this.seconds);
   }, 1000);
 }
 
-new Timer();
+function TimerFixed() {
+  this.seconds = 0;
 
-const person = {
-  name: "Alice",
-  regularFunc: function () {
-    console.log("Regular:", this.name);
-  },
-  arrowFunc: () => {
-    console.log("Arrow:", this.name);
-  }
+  // Arrow function — inherits `this` from TimerFixed
+  setInterval(() => {
+    this.seconds++; // ✅ `this` is TimerFixed instance
+    console.log(this.seconds);
+  }, 1000);
+}
+```
+
+**`arguments` object:**
+```javascript
+function regularFunc() {
+  console.log(arguments); // [Arguments] { 0: 1, 1: 2, 2: 3 }
+}
+regularFunc(1, 2, 3);
+
+const arrowFunc = (...args) => {
+  console.log(args); // [1, 2, 3] — use rest params instead
 };
-
-person.regularFunc(); // "Regular: Alice"
-person.arrowFunc();   // "Arrow: undefined" (or global value)
-
+arrowFunc(1, 2, 3);
 ```
-- Regular functions have their own `this` context. And this is determined dynamically depending on how you call or execute the function. Arrow functions, on the other hand, do not have their own `this` context. Instead, they capture the `this` value from the surrounding lexical context in which the arrow function was created.
-- For regular functions, you can create a new instance using the `new` keyword. And this sets the `this` value to the new instance you've created. For arrow functions, you cannot use them as constructors. This is because the value of `this` in arrow functions is lexically scoped – that is, determined by the surrounding execution context. This behaviour does not make them suitable to be used as constructors.
 
-It's recommended to use regular function in any of the following cases:
-1. when you need to use a constructor with the `new` keyword
-2. when you need the `this` binding to be dynamically scoped
-3. when you want to use the `arguments` object
+**Constructor usage:**
+```javascript
+function Person(name) {
+  this.name = name;
+}
+const p = new Person("Akshai"); // ✅
 
-And you can use arrow functions in any of the following cases:
-1. when you want a more concise syntax for the function
-2. when you need to maintain the lexical scope of `this`
-3. for non-method functions (in most cases)
-
-📢 NOTES: 
-
-> In programming, a function is a block of reusable code that performs a certain task. Functions can take input arguments and return output values. On the other hand, a method is a function that is associated with an object in object-oriented programming. Methods are functions that are called on objects and can modify or access the object's properties.
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Function Prototype Chain Viewer</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-    }
-    .box {
-      margin: 10px 0;
-      padding: 10px;
-      border: 2px solid #333;
-      border-radius: 8px;
-      background-color: #f0f0f0;
-    }
-    .arrow {
-      font-size: 24px;
-      text-align: center;
-    }
-    code {
-      background: #eee;
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
-  </style>
-</head>
-<body>
-
-  <h2>🔍 JavaScript Function Prototype Chain Viewer</h2>
-
-  <div class="box">
-    <strong>Step 1:</strong> A function is declared:
-    <br>
-    <code>function greet() { console.log("Hello"); }</code>
-  </div>
-
-  <div class="arrow">↓</div>
-
-  <div class="box">
-    <strong>Step 2:</strong> <code>greet.__proto__</code> points to:
-    <br>
-    <code>Function.prototype</code> → shared methods like <code>call()</code>, <code>bind()</code>
-  </div>
-
-  <div class="arrow">↓</div>
-
-  <div class="box">
-    <strong>Step 3:</strong> <code>Function.prototype.__proto__</code> is:
-    <br>
-    <code>Object.prototype</code> → generic object methods like <code>toString()</code>, <code>hasOwnProperty()</code>
-  </div>
-
-  <div class="arrow">↓</div>
-
-  <div class="box">
-    <strong>Step 4:</strong> <code>Object.prototype.__proto__</code> is:
-    <br>
-    <code>null</code> (End of the chain)
-  </div>
-
-  <h3>🧪 Live Console Output:</h3>
-  <pre id="output"></pre>
-
-  <script>
-    function greet() {
-      console.log("Hello");
-    }
-
-    const output = document.getElementById("output");
-
-    output.innerText += `typeof greet: ${typeof greet}\n`;
-    output.innerText += `greet instanceof Function: ${greet instanceof Function}\n`;
-    output.innerText += `greet instanceof Object: ${greet instanceof Object}\n\n`;
-
-    output.innerText += `Object.getPrototypeOf(greet) === Function.prototype: ${
-      Object.getPrototypeOf(greet) === Function.prototype
-    }\n`;
-
-    output.innerText += `Function.prototype.__proto__ === Object.prototype: ${
-      Function.prototype.__proto__ === Object.prototype
-    }\n`;
-
-    output.innerText += `Object.prototype.__proto__ === null: ${
-      Object.prototype.__proto__ === null
-    }\n`;
-  </script>
-
-</body>
-</html>
+const PersonArrow = (name) => {
+  this.name = name;
+};
+const p2 = new PersonArrow("Akshai"); // ❌ TypeError: not a constructor
 ```
+
+**When to use which:**
+
+Use regular functions when you need dynamic `this` binding, `arguments` object, or a constructor with `new`.
+
+Use arrow functions when you want lexical `this` (callbacks, event handlers inside classes), concise syntax, or non-method functions.
+
+📢 NOTES:
+
+> A **function** is a block of reusable code that performs a certain task. A **method** is a function that is associated with an object. All methods are functions, but not all functions are methods.
+
+### IIFE (Immediately Invoked Function Expression)
+
+A function that is defined and executed immediately. Used to create a private scope and avoid polluting the global namespace.
+```javascript
+(function() {
+  var secret = "hidden";
+  console.log(secret); // "hidden"
+})();
+
+console.log(secret); // ❌ ReferenceError — not accessible outside
+
+// With parameters
+(function(name) {
+  console.log(`Hello ${name}`);
+})("Akshai"); // "Hello Akshai"
+
+// Arrow function IIFE
+(() => {
+  console.log("I run immediately");
+})();
+```
+
 # Closures(Function + its lexical environment = Closure)
 
 A closure is a JavaScript feature that allows a function to remember and access its lexical scope even when the function is executed outside that scope.
