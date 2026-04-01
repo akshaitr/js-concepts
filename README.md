@@ -1948,35 +1948,260 @@ Reference: [Polyfill for Javascript Promise](https://medium.com/@manojsingh047/p
 
 # Event Propagation
 
-The complete process of deciding when and in which direction the event will be executed is called event propagation.
+When an event occurs on a DOM element, it doesn't just fire on that element alone. The event travels through the DOM tree in a specific order. This complete journey is called event propagation.
 
-### Event bubbling
+Event propagation has three phases:
 
-The propagation of an event from the innermost target element to it's outermost ancestor is called event bubbling. The events are executed from bottom up.
+1. **Capturing phase** — event travels from `window` down to the target element
+2. **Target phase** — event reaches the actual element that was clicked/triggered
+3. **Bubbling phase** — event travels back up from the target to `window`
+```
+         Capturing ↓                    ↑ Bubbling
+         ┌──────────────────────────────────────┐
+         │ window                                │
+         │  ┌───────────────────────────────────┐│
+         │  │ document                          ││
+         │  │  ┌────────────────────────────────┐│
+         │  │  │ <html>                         ││
+         │  │  │  ┌─────────────────────────────┐│
+         │  │  │  │ <body>                      ││
+         │  │  │  │  ┌──────────────────────────┐│
+         │  │  │  │  │ <div>                    ││
+         │  │  │  │  │  ┌───────────────────────┐│
+         │  │  │  │  │  │ <button> ← TARGET     ││
+         │  │  │  │  │  └───────────────────────┘│
+         │  │  │  │  └──────────────────────────┘│
+         │  │  │  └─────────────────────────────┘│
+         │  │  └────────────────────────────────┘│
+         │  └───────────────────────────────────┘│
+         └──────────────────────────────────────┘
+```
 
-📢 NOTES: 
+By default, event listeners fire during the **bubbling phase** (bottom up).
 
-> There are few events that do not bubble, eg: focus(), blur() etc
+### Event Bubbling
 
-### Target
+The event starts at the target element and bubbles up to its ancestors.
+```html
+┌──────────────────────────┐  // grandparent
+|  ┌────────────────────┐  |  // parent
+|  |    ┌──────────┐    |  |  // child
+|  |    | Click me │    |  | 
+|  |    └──────────┘    |  |
+|  └────────────────────┘  |
+└──────────────────────────┘  
+```
+```javascript
+document.getElementById("grandparent").addEventListener("click", () => {
+  console.log("Grandparent");
+});
 
-`event.target` refers to an element that triggered the event.
+document.getElementById("parent").addEventListener("click", () => {
+  console.log("Parent");
+});
 
-`this.target` refers to the element to which the event listener is attached(i.e, the current context).
+document.getElementById("child").addEventListener("click", () => {
+  console.log("Child");
+});
 
-`event.currentTarget` refers to the element that is currently handling the event during it's bubbling/capturing phase.
+// Click the button:
+// Output: "Child" → "Parent" → "Grandparent"
+```
 
-### Event capturing (trickling)
+📢 NOTES:
 
-Event capturing is the opposite of event bubbling. The event is captured from the outermost element towards the target element. By setting `{ capture: true}`, event listeners are triggered during the capturing phase instead of bubbling phase.
+> Not all events bubble. Events like `focus`, `blur`, `mouseenter`, `mouseleave`, `load`, `unload`, `scroll` do not bubble. Their bubbling alternatives are `focusin`/`focusout` and `mouseover`/`mouseout`.
+
+### Event Capturing (Trickling)
+
+The opposite of bubbling — the event is caught from the outermost ancestor down to the target. Enable it by passing `{ capture: true }` as the third argument.
+```javascript
+document.getElementById("grandparent").addEventListener("click", () => {
+  console.log("Grandparent");
+}, { capture: true });
+
+document.getElementById("parent").addEventListener("click", () => {
+  console.log("Parent");
+}, { capture: true });
+
+document.getElementById("child").addEventListener("click", () => {
+  console.log("Child");
+}, { capture: true });
+
+// Click the button:
+// Output: "Grandparent" → "Parent" → "Child"
+```
+
+**Mixing capturing and bubbling:**
+```javascript
+document.getElementById("grandparent").addEventListener("click", () => {
+  console.log("Grandparent - Capture");
+}, { capture: true });
+
+document.getElementById("parent").addEventListener("click", () => {
+  console.log("Parent - Bubble");
+}); // default is bubble
+
+document.getElementById("child").addEventListener("click", () => {
+  console.log("Child - Bubble");
+});
+
+// Click the button:
+// Output:
+// "Grandparent - Capture"  ← capturing phase (top down)
+// "Child - Bubble"          ← target phase
+// "Parent - Bubble"         ← bubbling phase (bottom up)
+```
+
+### event.target vs event.currentTarget vs this
+```javascript
+document.getElementById("parent").addEventListener("click", function(event) {
+  console.log("target:", event.target.id);         // element that was CLICKED
+  console.log("currentTarget:", event.currentTarget.id); // element that HANDLES the event
+  console.log("this:", this.id);                    // same as currentTarget
+});
+
+// Click the child button:
+// target: "child"          ← the actual element clicked
+// currentTarget: "parent"  ← the element with the event listener
+// this: "parent"           ← same as currentTarget (in regular functions)
+```
+
+📢 NOTES:
+
+> In arrow functions, `this` does NOT refer to `currentTarget`. Arrow functions inherit `this` from their lexical scope. Use `event.currentTarget` instead if you need the listener element.
+```javascript
+// Regular function — this = currentTarget
+element.addEventListener("click", function(event) {
+  console.log(this === event.currentTarget); // true
+});
+
+// Arrow function — this = outer scope (probably window)
+element.addEventListener("click", (event) => {
+  console.log(this === event.currentTarget); // false
+  // use event.currentTarget instead
+});
+```
 
 ### stopPropagation()
 
-`event.stopPropagation()` prevents the further propagation of an event through the DOM tree.
+Prevents the event from continuing to the next element in the propagation chain. Works in both capturing and bubbling phases.
+```javascript
+document.getElementById("parent").addEventListener("click", () => {
+  console.log("Parent");
+});
 
-### Event delegation
+document.getElementById("child").addEventListener("click", (event) => {
+  event.stopPropagation(); // stops here — Parent will NOT fire
+  console.log("Child");
+});
 
-A technique where element listens for events on behalf of it's children.
+// Click the button:
+// Output: "Child" (only)
+```
+
+### stopImmediatePropagation()
+
+`stopPropagation()` stops the event from reaching other elements, but if the *same element* has multiple listeners, they all still fire. `stopImmediatePropagation()` stops everything — even other listeners on the same element.
+```javascript
+const btn = document.getElementById("child");
+
+btn.addEventListener("click", (event) => {
+  console.log("First listener");
+  event.stopImmediatePropagation();
+});
+
+btn.addEventListener("click", () => {
+  console.log("Second listener"); // NEVER runs
+});
+
+document.getElementById("parent").addEventListener("click", () => {
+  console.log("Parent"); // NEVER runs
+});
+
+// Click the button:
+// Output: "First listener" (only)
+```
+
+### preventDefault()
+
+Stops the browser's default behavior for an event — NOT the same as stopping propagation. The event still bubbles, but the default action is cancelled.
+```javascript
+// Prevent link navigation
+document.querySelector("a").addEventListener("click", (event) => {
+  event.preventDefault(); // link won't navigate
+  console.log("Link clicked but not followed");
+});
+
+// Prevent form submission
+document.querySelector("form").addEventListener("submit", (event) => {
+  event.preventDefault(); // page won't reload
+  console.log("Form submitted via JS");
+});
+
+// Prevent right-click context menu
+document.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+  console.log("Custom right-click menu");
+});
+```
+
+### Event Delegation
+
+Instead of attaching event listeners to every child element, attach one listener to the parent and use `event.target` to determine which child was clicked. This is more memory efficient and automatically works for dynamically added elements.
+```javascript
+// BAD — one listener per item
+document.querySelectorAll("li").forEach(item => {
+  item.addEventListener("click", () => {
+    console.log(item.textContent);
+  });
+});
+
+// GOOD — one listener on the parent
+document.getElementById("list").addEventListener("click", (event) => {
+  if (event.target.tagName === "LI") {
+    console.log(event.target.textContent);
+  }
+});
+```
+
+**Why event delegation works:** because of bubbling. When you click an `<li>`, the event bubbles up to the `<ul>` where your listener catches it.
+
+**Real-world use case — dynamically added elements:**
+```javascript
+const list = document.getElementById("list");
+
+// This listener handles items that don't even exist yet
+list.addEventListener("click", (event) => {
+  if (event.target.tagName === "LI") {
+    event.target.classList.toggle("completed");
+  }
+});
+
+// Adding new items later — they automatically work
+const newItem = document.createElement("li");
+newItem.textContent = "New task";
+list.appendChild(newItem); // click handler works without adding a new listener
+```
+
+**Event delegation in React:**
+
+You've been using event delegation without knowing it. React doesn't attach event listeners to individual DOM elements — it uses a single listener at the root and delegates internally. This is why React's synthetic event system is efficient.
+```javascript
+// React — looks like individual listeners but React delegates internally
+function TodoList({ items }) {
+  return (
+    <ul onClick={(e) => {
+      // delegation pattern — one handler for all items
+      if (e.target.tagName === "LI") {
+        console.log(e.target.textContent);
+      }
+    }}>
+      {items.map(item => {item.text})}
+    
+  );
+}
+```
 
 # Debouncing and Throttling
 
