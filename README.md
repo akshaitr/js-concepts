@@ -1943,7 +1943,7 @@ const timer1 = setTimeout(() => {
 console.log('end');
 ```
 
-[Polyfill for Promise](https://github.com/akshaitr/js-polyfills/blob/main/src/promise.js)
+[Polyfill for Promise](https://github.com/akshaitr/js-polyfills/blob/main/src/promise.js) <br/>
 Reference: [Polyfill for Javascript Promise](https://medium.com/@manojsingh047/polyfill-for-javascript-promise-81053b284e37)
 
 # Event Propagation
