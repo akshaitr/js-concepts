@@ -14,7 +14,6 @@
 12. [Prototypes](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#prototypes)
 13. [Classes and constructors](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#class-and-constructors)
 14. [Event Loop](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#event-loop)
-15. [Async and await](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#async-and-await)
 
 # Execution Context
 
@@ -1575,28 +1574,235 @@ obj.method(callback, 2, 3);
 
 > This is one of the trickiest `this` questions in JavaScript interviews. The key insight is that `arguments` is an array-like *object*, and calling a function stored inside it makes `this` point to `arguments`.
 
-# Async and await
+# Promises
 
-async Function
+A Promise represents a value that may not be available yet but will be at some point in the future (or it will fail).
 
-- Declaring a function with async makes it return a Promise, no matter what.
-- If the function returns a value, JavaScript wraps it in a resolved Promise.
-- If it throws an error, JavaScript wraps it in a rejected Promise.
+Think of it like ordering food online — you get an order confirmation (the promise). The food is either **delivered** (fulfilled) or **cancelled** (rejected). Until then, your order is **pending**.
 
+A Promise is in one of these states:
+
+- **pending** — initial state, the operation is still in progress
+- **fulfilled** — the operation completed successfully, the promise has a value
+- **rejected** — the operation failed, the promise has a reason (error)
+
+Once a promise is fulfilled or rejected, it's **settled** — it can never change state again.
+```javascript
+const myPromise = new Promise((resolve, reject) => {
+  setTimeout(() => {
+    resolve("Order delivered");  // fulfills the promise
+    // reject("Order cancelled"); // would reject the promise
+  }, 1000);
+});
+```
+
+### Consuming promises — then, catch, finally
+```javascript
+myPromise
+  .then((value) => {
+    console.log(value); // runs if fulfilled
+  })
+  .catch((error) => {
+    console.log(error); // runs if rejected
+  })
+  .finally(() => {
+    console.log("Done"); // runs regardless of outcome
+  });
+```
+
+📢 NOTES:
+
+> `.then()` returns a new promise, which is why chaining works. Whatever you return from a `.then()` callback becomes the resolved value of the next `.then()`.
+```javascript
+Promise.resolve(1)
+  .then(val => val + 1)   // returns 2
+  .then(val => val * 3)   // returns 6
+  .then(val => console.log(val)); // 6
+```
+
+> If you don't return anything from `.then()`, the next `.then()` receives `undefined`.
+
+### Promise chaining
+
+Each `.then()` receives the result of the previous one. If a `.then()` throws or returns a rejected promise, the chain skips to the nearest `.catch()`. After a `.catch()`, the chain continues normally.
+
+${\textsf{\color{khaki}Guess\ the\ output}}$
+```javascript
+function job(state) {
+  return new Promise(function(resolve, reject) {
+    if (state) {
+      resolve("Success");
+    } else {
+      reject("Error");
+    }
+  });
+}
+
+let promise = job(true);
+
+promise
+  .then(function(data) {
+    console.log(data);
+    return job(false);
+  })
+  .catch(function(error) {
+    console.log(error);
+    return "Error caught";
+  })
+  .then(function(data) {
+    console.log(data);
+    return job(true);
+  })
+  .catch(function(error) {
+    console.log(error);
+  });
+```
+### Promise inside a promise
+
+${\textsf{\color{khaki}Guess\ the\ output}}$
+```javascript
+const firstPromise = new Promise((resolve, reject) => {
+  resolve("First");
+});
+
+const secondPromise = new Promise((resolve, reject) => {
+  resolve(firstPromise);
+});
+
+secondPromise
+  .then((res) => {
+    return res;
+  })
+  .then(console.log);
+```
+
+### Creating pre-resolved/rejected promises
+```javascript
+// Already resolved
+const resolved = Promise.resolve("Done");
+resolved.then(console.log); // "Done"
+
+// Already rejected
+const rejected = Promise.reject("Failed");
+rejected.catch(console.log); // "Failed"
+
+// Useful for: returning early, mocking in tests, starting a chain
+function getUser(id) {
+  if (!id) return Promise.reject("ID required");
+  return fetch(`/api/users/${id}`).then(res => res.json());
+}
+```
+
+### Promise static methods
+
+**Promise.all()** — all must succeed, fails fast on first rejection
+```javascript
+const p1 = Promise.resolve(1);
+const p2 = Promise.resolve(2);
+const p3 = Promise.resolve(3);
+
+Promise.all([p1, p2, p3]).then(console.log); // [1, 2, 3]
+
+// If any one fails:
+const p4 = Promise.reject("Failed");
+Promise.all([p1, p2, p4])
+  .then(console.log)
+  .catch(console.log); // "Failed" — entire thing fails
+```
+
+Use case: fetching multiple independent resources that are all required.
+
+[Polyfill for Promise.all()](https://github.com/akshaitr/js-polyfills/blob/main/src/allPromise.js)
+
+**Promise.allSettled()** — waits for all to finish regardless of outcome
+```javascript
+const p1 = Promise.resolve("OK");
+const p2 = Promise.reject("Error");
+const p3 = Promise.resolve("Done");
+
+Promise.allSettled([p1, p2, p3]).then(console.log);
+// [
+//   { status: "fulfilled", value: "OK" },
+//   { status: "rejected", reason: "Error" },
+//   { status: "fulfilled", value: "Done" }
+// ]
+```
+
+Use case: firing off multiple operations where you want results from all of them even if some fail (e.g., saving to multiple services).
+
+**Promise.race()** — first one to settle wins (fulfilled or rejected)
+```javascript
+const slow = new Promise(resolve => setTimeout(() => resolve("Slow"), 2000));
+const fast = new Promise(resolve => setTimeout(() => resolve("Fast"), 500));
+
+Promise.race([slow, fast]).then(console.log); // "Fast"
+```
+
+Use case: timeout pattern — race your fetch against a timer.
+```javascript
+function fetchWithTimeout(url, ms) {
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject("Timeout"), ms)
+  );
+  return Promise.race([fetch(url), timeout]);
+}
+```
+
+**Promise.any()** — first one to *fulfill* wins (ignores rejections)
+```javascript
+const p1 = Promise.reject("Error 1");
+const p2 = new Promise(resolve => setTimeout(() => resolve("P2"), 500));
+const p3 = new Promise(resolve => setTimeout(() => resolve("P3"), 100));
+
+Promise.any([p1, p2, p3]).then(console.log); // "P3" — first fulfilled
+
+// If ALL reject:
+Promise.any([
+  Promise.reject("A"),
+  Promise.reject("B")
+]).catch(console.log); // AggregateError: All promises were rejected
+```
+
+Use case: trying multiple sources and using whichever responds first successfully.
+
+**Quick comparison:**
+```
+                    | Waits for all? | Short-circuits on?
+--------------------|----------------|--------------------
+Promise.all()       | Yes            | First rejection
+Promise.allSettled()| Yes            | Never
+Promise.race()      | No             | First settlement (any)
+Promise.any()       | No             | First fulfillment
+```
+
+### Async / Await
+
+`async` and `await` are syntactic sugar over promises. They make asynchronous code look and behave like synchronous code.
+
+**async function** — always returns a promise. If you return a value, it's wrapped in `Promise.resolve()`. If you throw, it's wrapped in `Promise.reject()`.
 ```javascript
 async function greet() {
   return "Hello World";
 }
 
+// Equivalent to:
+function greet() {
+  return Promise.resolve("Hello World");
+}
+
 greet().then(console.log); // "Hello World"
 ```
-await Expression
 
-- Can only be used inside an async function.
-- Pauses execution of the function until the Promise settles.
-- Returns the resolved value if the Promise is fulfilled.
-- Throws an error if the Promise is rejected.
+**await** — pauses execution of the async function until the promise settles. Can only be used inside an `async` function.
+```javascript
+async function fetchUser() {
+  const response = await fetch("/api/user");  // pauses here
+  const data = await response.json();         // pauses here
+  console.log(data);                          // runs after both complete
+}
+```
 
+**Error handling with try/catch:**
 ```javascript
 async function riskyOperation() {
   throw new Error("Something went wrong!");
@@ -1607,73 +1813,82 @@ async function run() {
     const res = await riskyOperation();
     console.log(res);
   } catch (err) {
-    console.error("Caught error:", err.message);
+    console.error("Caught:", err.message); // "Caught: Something went wrong!"
   }
 }
 
 run();
-// Output: Caught error: Something went wrong!
 ```
 
-# Promises
-
-The Promise object represents the eventual completion (or failure) of an asynchronous operation and its resulting value.
-
-A Promise is in one of these states:
-- pending: initial state, neither fulfilled nor rejected.
-- fulfilled: meaning that the operation was completed successfully
-- rejected: meaning that the operation failed
-
+**Sequential vs Parallel execution:**
 ```javascript
-const myPromise = new Promise((resolve, reject) => {
-  setTimeout(() => {
-    resolve("foo");
-  }, 300);
-});
+// Sequential — each waits for the previous one (SLOW)
+async function sequential() {
+  const user = await fetchUser();      // waits 1 sec
+  const posts = await fetchPosts();    // waits 1 sec after user
+  // Total: ~2 seconds
+}
 
-myPromise.then((res) => {
-  console.log(res);
-});
+// Parallel — both start at the same time (FAST)
+async function parallel() {
+  const [user, posts] = await Promise.all([
+    fetchUser(),    // starts immediately
+    fetchPosts()    // starts immediately
+  ]);
+  // Total: ~1 second (whichever is slower)
+}
 ```
 
-[Polyfill for Promise](https://github.com/akshaitr/js-polyfills/edit/main/src/promise.js)
-Reference: [Polyfill for Javascript Promise](https://medium.com/@manojsingh047/polyfill-for-javascript-promise-81053b284e37)
+📢 NOTES:
 
-### Promise.all()
-
-We can provide multiple promises to Promise.all(). It will run all the promises in parallel and returns an array with all the fullfilled promises. If any one of the promise fails, it will fail the complete Promise.all() operation.
-
+> A common mistake is using `await` in a loop when the operations are independent:
 ```javascript
-const promise1 = Promise.resolve(3);
-const promise2 = 42;
-const promise3 = new Promise((resolve, reject) => {
-  setTimeout(resolve, 1000, "foo");
-});
+// BAD — sequential, 5 seconds total
+async function loadAll(ids) {
+  for (const id of ids) {
+    const data = await fetch(`/api/${id}`); // waits each time
+  }
+}
 
-Promise.all([promise1, promise2, promise3]).then((values) => {
-  console.log(values);
-});
+// GOOD — parallel, ~1 second total
+async function loadAll(ids) {
+  const promises = ids.map(id => fetch(`/api/${id}`));
+  const results = await Promise.all(promises);
+}
 ```
 
-[Polyfill for Promise.all()](https://github.com/akshaitr/js-polyfills/blob/main/src/allPromise.js)
+### Microtasks vs Macrotasks
 
-### Promise.race()
+This is where promises interact with the event loop. Understanding this order is critical for predicting output in interview questions.
 
-It returns the first promise that gets fullfilled.
+**Macrotasks:** `setTimeout`, `setInterval`, `setImmediate`, I/O operations
+**Microtasks:** `Promise.then/catch/finally`, `queueMicrotask`, `MutationObserver`
 
-### Promise.allSettled()
+**Execution order:**
+1. Run current synchronous code to completion
+2. Empty the entire microtask queue
+3. Run one macrotask
+4. Empty the entire microtask queue again
+5. Repeat from step 3
+```javascript
+console.log("1 - sync");
 
-It takes multiple promises and returns a single promise, which when fullfilled, will return an array of objects that describe outcome of each promise.
+setTimeout(() => {
+  console.log("2 - macrotask");
+}, 0);
 
-### Promise.any()
+Promise.resolve().then(() => {
+  console.log("3 - microtask");
+});
 
-It takes an array of promises as input and returns a single Promise. This returned promise fulfills when any of the input's promises fulfills, with this first fulfillment value. It rejects when all of the input's promises reject (including when an empty iterable is passed), with an AggregateError containing an array of rejection reasons.
+console.log("4 - sync");
+```
 
-### Async await
-
-An async function declaration creates an AsyncFunction object. Each time when an async function is called, it returns a new Promise which will be resolved with the value returned by the async function, or rejected with an exception uncaught within the async function.
-
-Await expressions make promise-returning functions behave as though they're synchronous by suspending execution until the returned promise is fulfilled or rejected. The resolved value of the promise is treated as the return value of the await expression.
+> Output:
+> `"1 - sync"` — synchronous, runs first
+> `"4 - sync"` — synchronous, runs second
+> `"3 - microtask"` — microtask queue emptied before any macrotask
+> `"2 - macrotask"` — macrotask runs last
 
 ${\textsf{\color{khaki}Guess\ the\ output}}$
 ```javascript
@@ -1709,55 +1924,6 @@ console.log("end");
 
 ${\textsf{\color{khaki}Guess\ the\ output}}$
 ```javascript
-function job(state) {
-  return new Promise(function (resolve, reject) {
-    if (state) {
-      resolve("Success");
-    } else {
-      reject("Error");
-    }
-  });
-}
-
-let promise = job(true);
-
-promise
-  .then(function (data) {
-    console.log(data);
-    return job(false);
-  })
-  .catch(function (error) {
-    console.log(error);
-    return "Error caught";
-  })
-  .then(function (data) {
-    console.log(data);
-    return job(true);
-  })
-  .catch(function (error) {
-    console.log(error);
-  });
-```
-
-${\textsf{\color{khaki}Guess\ the\ output}}$
-```javascript
-const firstPromise = new Promise((resolve, reject) => {
-  resolve("First");
-});
-
-const secondPromise = new Promise((resolve, reject) => {
-  resolve(firstPromise);
-});
-
-secondPromise
-  .then((res) => {
-    return res;
-  })
-  .then(console.log);
-```
-
-${\textsf{\color{khaki}Guess\ the\ output}}$
-```javascript
 console.log('start');
 
 const promise1 = Promise.resolve().then(() => {
@@ -1776,6 +1942,9 @@ const timer1 = setTimeout(() => {
 
 console.log('end');
 ```
+
+[Polyfill for Promise](https://github.com/akshaitr/js-polyfills/blob/main/src/promise.js)
+Reference: [Polyfill for Javascript Promise](https://medium.com/@manojsingh047/polyfill-for-javascript-promise-81053b284e37)
 
 # Event Propagation
 
