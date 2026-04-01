@@ -1292,9 +1292,31 @@ getItems(["banana", "apple"], "pear", "orange");
 
 # Binding
 
-### Implicit binding - `this` keyword
+`this` in JavaScript is determined by *how* a function is called, not where it's defined. This makes it fundamentally different from most other languages (including Java, where `this` always refers to the current object instance).
 
-The this keyword refers to the context where a piece of code, such as a function's body, is supposed to run. Most typically, it is used in object methods, where this refers to the object that the method is attached to, thus allowing the same method to be reused on different objects.
+There are four ways `this` gets bound:
+
+### 1. Default binding
+
+When a function is called without any context, `this` defaults to `window` (browser) or `global` (Node.js). In strict mode, it's `undefined`.
+```javascript
+function showThis() {
+  console.log(this);
+}
+
+showThis(); // window (or global in Node.js)
+
+"use strict";
+function showThisStrict() {
+  console.log(this);
+}
+
+showThisStrict(); // undefined
+```
+
+### 2. Implicit binding
+
+When a function is called as a method of an object, `this` refers to the object that's calling it — the object to the *left of the dot*.
 
 ${\textsf{\color{khaki}Guess\ the\ output}}$
 ```javascript
@@ -1309,17 +1331,25 @@ const user = {
 console.log(user.getName());
 ```
 
+**The implicit binding trap — losing `this`:**
+
+When you extract a method from an object, it loses its implicit binding.
+
 ${\textsf{\color{khaki}Guess\ the\ output}}$
 ```javascript
-function createUser() {
-  return {
-    name: "John",
-    ref: this,
-  };
-}
+const user = {
+  name: "Akshai",
+  logName() {
+    console.log(this.name);
+  },
+};
 
-const user = createUser();
-console.log(user.ref.name);
+user.logName();
+
+const fn = user.logName;
+fn();
+
+setTimeout(user.logName, 1000);
 ```
 
 ${\textsf{\color{khaki}Guess\ the\ output}}$
@@ -1331,97 +1361,73 @@ const user = {
   },
 };
 
-setTimeout(user.logName, 1000);
-
 setTimeout(function () {
   user.logName();
 }, 1000);
+
+setTimeout(() => user.logName(), 1000);
 ```
 
 ${\textsf{\color{khaki}Guess\ the\ output}}$
 ```javascript
-var length = 4;
-
-function callback() {
-  console.log(this.length);
+function createUser() {
+  return {
+    name: "John",
+    ref: this,
+  };
 }
 
-const obj = {
-  length: 5,
-  method(func) {
-    func();
-  },
-};
+const user1 = createUser();
+console.log(user1.ref.name);
 
-obj.method(callback);
-
-obj.method(callback.bind(obj));
+const user2 = new createUser();
+console.log(user2.ref.name);
 ```
 
-${\textsf{\color{khaki}Guess\ the\ output}}$
-```javascript
-var length = 4;
+### 3. Explicit binding — call, apply, and bind
 
-function callback() {
-  console.log(this.length);
-}
+When you want to manually set `this`, you use `call`, `apply`, or `bind`.
 
-const obj = {
-  length: 5,
-  method() {
-    console.log(arguments);
-    arguments[0]();
-  },
-};
-
-obj.method(callback, 2, 3);
-```
-
-### Explicit binding - Call, apply and bind
-
-The `call` method in JavaScript is used to invoke a function with a specified `this` context and arguments individually. It accepts the context object as the first argument followed by individual arguments.
+**call** — invokes the function immediately with a specified `this` and individual arguments.
 
 ```javascript
 var user = {
   name: "Akshai",
 };
 
-function greeting(greetingText) {
-  return `${greetingText} ${this.name}!!`;
+function greeting(greetingText, punctuation) {
+  return `${greetingText} ${this.name}${punctuation}`;
 }
 
-console.log(greeting.call(user, "Hello"));
+console.log(greeting.call(user, "Hello", "!!")); // "Hello Akshai!!"
 ```
 
-The `apply` method in JavaScript is similar to call but accepts arguments as an array. It is used to invoke a function with a specified context and an array of arguments.
+**apply** — same as `call` but arguments are passed as an array.
 
 ```javascript
-var user = {
-  name: "Akshai",
-};
-
-function greeting(greetingText) {
-  return `${greetingText} ${this.name}!!`;
-}
-
-console.log(greeting.apply(user, ["Hello"]));
+console.log(greeting.apply(user, ["Hello", "!!"])); // "Hello Akshai!!"
 ```
 
-The bind method in JavaScript is used to create a new function with a specified `this` context. It doesn't immediately execute the function but return a new function that can be invoked later.
-
+**bind** — does NOT invoke the function. Returns a new function with `this` permanently bound.
 ```javascript
-var user = {
-  name: "Akshai",
-};
-
-function greeting(greetingText) {
-  return `${greetingText} ${this.name}!!`;
-}
-
 const greetUser = greeting.bind(user);
+console.log(greetUser("Hello", "!!")); // "Hello Akshai!!"
 
-console.log(greetUser("Hello"));
+// Useful for callbacks where you'd lose this
+const user = {
+  name: "Akshai",
+  logName() {
+    console.log(this.name);
+  },
+};
+
+setTimeout(user.logName.bind(user), 1000); // "Akshai" — this is locked
 ```
+
+**Quick memory trick:**
+- **call** → **c**omma separated arguments
+- **apply** → **a**rray of arguments
+- **bind** → **b**ookmarks `this` for later
 
 ${\textsf{\color{khaki}Guess\ the\ output}}$
 ```javascript
@@ -1459,6 +1465,116 @@ setTimeout(() => {
   console.log(data.getStatus.call(this));
 });
 ```
+
+### 4. new binding
+
+When a function is called with `new`, `this` refers to the newly created instance.
+```javascript
+function Person(name) {
+  this.name = name;
+  this.greet = function() {
+    console.log(`Hi, I'm ${this.name}`);
+  };
+}
+
+const p1 = new Person("Akshai");
+const p2 = new Person("Aiswarya");
+
+p1.greet(); // "Hi, I'm Akshai"
+p2.greet(); // "Hi, I'm Aiswarya"
+```
+
+What `new` does behind the scenes:
+```javascript
+function Person(name) {
+  // 1. Creates a new empty object: {}
+  // 2. Sets this = that new object
+  // 3. Links the object's prototype to Person.prototype
+  this.name = name;
+  // 4. Returns this (implicitly)
+}
+```
+
+### Binding precedence
+
+When multiple rules could apply, this is the priority order:
+
+> new binding  >  explicit binding (call/apply/bind)  >  implicit binding  >  default binding
+
+```javascript
+function greet() {
+  console.log(this.name);
+}
+
+const obj1 = { name: "obj1", greet };
+const obj2 = { name: "obj2" };
+
+// Implicit vs explicit — explicit wins
+obj1.greet.call(obj2); // "obj2"
+
+// bind vs call — bind wins (once bound, can't be overridden)
+const bound = greet.bind(obj1);
+bound.call(obj2); // "obj1" — bind takes priority
+```
+
+### The `arguments` and `this` trick
+
+${\textsf{\color{khaki}Guess\ the\ output}}$
+```javascript
+var length = 4;
+
+function callback() {
+  console.log(this.length);
+}
+
+const obj = {
+  length: 5,
+  method(func) {
+    func();
+  },
+};
+
+obj.method(callback);
+```
+
+${\textsf{\color{khaki}Guess\ the\ output}}$
+```javascript
+var length = 4;
+
+function callback() {
+  console.log(this.length);
+}
+
+const obj = {
+  length: 5,
+  method(func) {
+    func();
+  },
+};
+
+obj.method(callback.bind(obj));
+```
+
+${\textsf{\color{khaki}Guess\ the\ output}}$
+```javascript
+var length = 4;
+
+function callback() {
+  console.log(this.length);
+}
+
+const obj = {
+  length: 5,
+  method() {
+    arguments[0]();
+  },
+};
+
+obj.method(callback, 2, 3);
+```
+
+> This is one of the trickiest `this` questions in JavaScript interviews. The key insight is that `arguments` is an array-like *object*, and calling a function stored inside it makes `this` point to `arguments`.
+
 # Async and await
 
 async Function
