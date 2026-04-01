@@ -623,37 +623,45 @@ func();
 
 > Unlike variables, function definitions get hoisted completely
 
-# Closures(Function + its lexical environment = Closure)
+# Closures
 
-A closure is a JavaScript feature that allows a function to remember and access its lexical scope even when the function is executed outside that scope.
-
+A closure is created when a function retains access to variables from its outer (lexical) scope, even after the outer function has finished executing and its execution context is destroyed.
 ```javascript
-function init() {
-  var name = "Mozilla"; // name is a local variable created by init
-  function displayName() {
-    // displayName() is the inner function, that forms the closure
-    console.log(name); // use variable declared in the parent function
+function outer() {
+  let count = 0;
+
+  function inner() {
+    count++;
+    console.log(count);
   }
-  displayName();
+
+  return inner;
 }
 
-init();
+const counter = outer(); // outer() finishes executing
+counter(); // 1 — but inner still has access to count
+counter(); // 2
+counter(); // 3
 ```
 
-📢 NOTES: 
+`outer()` has finished executing. Its execution context is gone from the call stack. But `inner` still has access to `count` because of closure — it "closed over" the variable from its outer scope.
 
-> In JavaScript, a closure is created every time a function is created, at the function creation time.
+📢 NOTES:
+
+> In JavaScript, a closure is created every time a function is created, at function creation time.
+
+> Closures don't store the *value* of the variable — they store a *reference* to it. This is why the counter example above works — `inner` always has access to the latest value of `count`, not a snapshot of it.
 
 ### Lexical Scope
 
-Lexical scoping describes how a parser resolves variable names when functions are nested. The word lexical refers to the fact that lexical scoping uses the location where a variable is declared within the source code to determine where that variable is available. Nested functions have access to variables declared in their outer scope.
+Lexical scoping means a function's access to variables is determined by *where it is written* in the source code, not where it is called. Nested functions have access to variables declared in their outer scope.
 ```javascript
 function outer() {
   const secret = "12345";
 
   function inner() {
     const secret = "54321";
-    console.log(secret); // Logs: 54321
+    console.log(secret); // "54321" — uses its own local variable first
   }
 
   inner();
@@ -668,7 +676,7 @@ outer();
 │  a = 10                      │
 │  outer()                     │
 │  Outer: null                 │
-└────────────┬────────────────┘
+└────────────┬─────────────────┘
              │
              ▼
 ┌──────────────────────────────┐
@@ -677,7 +685,7 @@ outer();
 │  b = 20                      │
 │  inner()                     │
 │  Outer: Global Env           │
-└────────────┬────────────────┘
+└────────────┬─────────────────┘
              │
              ▼
 ┌──────────────────────────────┐
@@ -687,66 +695,243 @@ outer();
 │  Outer: outer() Env          │
 └──────────────────────────────┘
 ```
+
 ### Why do we need closures?
 
-- Closures makes it possible for functions to have private variables
-- JavaScript closures are used to control what is and what isn't in the scope of a particular function
-- Control which variables are shared with sibling functions
-- Closures can be used for optimizing the runtime of a function
+**1. Data privacy / encapsulation**
+
+Closures let you create variables that can't be accessed from outside, similar to private fields in other languages.
+```javascript
+function createBankAccount(initialBalance) {
+  let balance = initialBalance; // private — no one can access directly
+
+  return {
+    deposit(amount) {
+      balance += amount;
+      return balance;
+    },
+    withdraw(amount) {
+      if (amount > balance) return "Insufficient funds";
+      balance -= amount;
+      return balance;
+    },
+    getBalance() {
+      return balance;
+    }
+  };
+}
+
+const account = createBankAccount(100);
+account.deposit(50);     // 150
+account.withdraw(30);    // 120
+account.getBalance();    // 120
+account.balance;         // undefined — can't access directly
+```
+
+**2. Function factories**
+
+Create specialized functions from a general template.
+```javascript
+function createMultiplier(multiplier) {
+  return function(num) {
+    return num * multiplier;
+  };
+}
+
+const double = createMultiplier(2);
+const triple = createMultiplier(3);
+
+double(5);  // 10
+triple(5);  // 15
+```
+
+**3. Memoization**
+
+Cache expensive function results to avoid recalculation.
+```javascript
+function memoize(fn) {
+  const cache = {}; // persists across calls because of closure
+
+  return function(...args) {
+    const key = JSON.stringify(args);
+    if (cache[key] !== undefined) {
+      console.log("From cache");
+      return cache[key];
+    }
+    console.log("Computing");
+    const result = fn(...args);
+    cache[key] = result;
+    return result;
+  };
+}
+
+const expensiveAdd = memoize((a, b) => a + b);
+expensiveAdd(1, 2); // "Computing" → 3
+expensiveAdd(1, 2); // "From cache" → 3
+expensiveAdd(3, 4); // "Computing" → 7
+```
+
+**4. Maintaining state in async operations**
+```javascript
+function createLogger(prefix) {
+  return function(message) {
+    console.log(`[${prefix}] ${message}`);
+  };
+}
+
+const errorLog = createLogger("ERROR");
+const infoLog = createLogger("INFO");
+
+setTimeout(() => errorLog("Something broke"), 1000);   // [ERROR] Something broke
+setTimeout(() => infoLog("Server started"), 2000);     // [INFO] Server started
+```
+
+### The classic closure trap
 
 ${\textsf{\color{khaki}Guess\ the\ output}}$
 ```javascript
 for (var i = 0; i < 5; i++) {
+  setTimeout(function() {
+    console.log(i);
+  }, i * 1000);
+}
+```
+
+> Output: `5 5 5 5 5` — all callbacks share the same `i` (var is function scoped). By the time setTimeout fires, the loop has finished and `i` is 5.
+
+**Three ways to fix this:**
+```javascript
+// Fix 1: Use let — each iteration gets its own copy
+for (let i = 0; i < 5; i++) {
+  setTimeout(function() {
+    console.log(i);
+  }, i * 1000);
+}
+// Output: 0 1 2 3 4
+
+// Fix 2: Use an IIFE — create a new scope for each iteration
+for (var i = 0; i < 5; i++) {
+  (function(index) {
+    setTimeout(function() {
+      console.log(index);
+    }, index * 1000);
+  })(i);
+}
+// Output: 0 1 2 3 4
+
+// Fix 3: Pass to a named function
+for (var i = 0; i < 5; i++) {
   function print(index) {
-    setTimeout(function log() {
+    setTimeout(function() {
       console.log(index);
     }, index * 1000);
   }
   print(i);
 }
-```
-
-### Creating a private counter using closure
-
-```javascript
-function counter() {
-  let counter = 0;
-
-  function add(increment) {
-    counter += increment;
-  }
-
-  function get() {
-    return `Counter = ${counter}`;
-  }
-
-  return { add, get };
-}
+// Output: 0 1 2 3 4
 ```
 
 ### Module pattern
 
-The module pattern uses an IIFE to encapsulate private variables and functions, exposing only a public interface. The module pattern is a design pattern used for improving the maintainability and reusability of the code by creating public and private access levels. The module pattern keeps the privacy of the state and organizes using closures. It protects the pieces from the global scope, avoiding possible errors and conflicts.
-
+The module pattern uses an IIFE to encapsulate private variables and functions, exposing only a public interface. It protects the pieces from the global scope, avoiding possible errors and conflicts.
 ```javascript
-const createSupplier = (function () {
-  const name = "General Motors";
-  const field = "automobile";
+const calculator = (function() {
+  // Private
+  let result = 0;
 
+  function validate(num) {
+    if (typeof num !== "number") throw new Error("Invalid input");
+  }
+
+  // Public interface
   return {
-    name,
-    field,
+    add(num) {
+      validate(num);
+      result += num;
+      return this;
+    },
+    subtract(num) {
+      validate(num);
+      result -= num;
+      return this;
+    },
+    getResult() {
+      return result;
+    },
+    reset() {
+      result = 0;
+      return this;
+    }
   };
 })();
 
-createSupplier.name;
-createSupplier.field;
+calculator.add(10).add(5).subtract(3).getResult(); // 12
+calculator.result;    // undefined — private
+calculator.validate;  // undefined — private
 ```
 
 ### Closures vs Scopes
 
-- Closure refers to the ability of a function to retain access to variables from its lexical scope even after the scope has been closed
-- Scope refers to the visibility and accessbility of variables within a specified context, such as global scope, function scope or block scope
+- **Scope** refers to the visibility and accessibility of variables within a specified context (global scope, function scope, or block scope). It exists while the code in that scope is running.
+
+- **Closure** is what happens when a function *remembers* its scope even after the scope has finished executing. The scope is gone from the call stack, but the function still holds a reference to its variables.
+```javascript
+// Scope in action — nothing special
+function demo() {
+  let x = 10;
+  console.log(x); // 10 — x is in scope
+}
+demo();
+// x is gone — scope is destroyed
+
+// Closure in action — function outlives its scope
+function demo() {
+  let x = 10;
+  return function() {
+    console.log(x); // 10 — x's scope is gone but closure keeps it alive
+  };
+}
+const fn = demo();
+fn(); // 10
+```
+
+### Common closure pitfalls
+
+**1. Accidental reference sharing**
+```javascript
+function createFunctions() {
+  var functions = [];
+  for (var i = 0; i < 3; i++) {
+    functions.push(function() {
+      return i;
+    });
+  }
+  return functions;
+}
+
+const fns = createFunctions();
+fns[0](); // 3 — not 0!
+fns[1](); // 3 — not 1!
+fns[2](); // 3 — not 2!
+// All three functions share the same `i` reference
+```
+
+**2. Memory leaks**
+
+Closures keep their outer variables alive in memory. If a closure references a large object and the closure itself is long-lived (e.g., attached to an event listener), that object won't be garbage collected.
+```javascript
+function setup() {
+  const hugeData = new Array(1000000).fill("data");
+
+  // This closure keeps hugeData alive as long as the listener exists
+  document.getElementById("btn").addEventListener("click", function() {
+    console.log(hugeData.length);
+  });
+}
+
+// Fix: remove the event listener when no longer needed
+// or only close over the specific data you need, not the entire object
+```
 
 # Objects
 
