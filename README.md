@@ -2205,18 +2205,207 @@ function TodoList({ items }) {
 
 # Debouncing and Throttling
 
-Debouncing limits the execution of a function call and waits for a certain amount of time before running it again.
+Both are techniques to control how often a function executes. They solve the same problem — preventing excessive function calls — but in different ways.
+
+### The problem
+```javascript
+// Without any control — fires on EVERY keystroke
+searchInput.addEventListener("input", (e) => {
+  fetchSearchResults(e.target.value); // API call on every single character
+});
+
+// User types "javascript" → 10 API calls
+// Most of those calls are wasted because the user is still typing
+```
+
+### Debouncing
+
+Debouncing delays the execution until the user *stops* performing the action for a specified time. If the action is repeated before the delay ends, the timer resets.
+
+Think of it like an elevator door — it keeps resetting the closing timer every time someone walks in. It only closes after nobody has entered for a few seconds.
+
+```javascript
+function debounce(fn, delay) {
+  let timerId;
+
+  return function(...args) {
+    clearTimeout(timerId); // reset the timer every time
+    timerId = setTimeout(() => {
+      fn.apply(this, args);
+    }, delay);
+  };
+}
+```
+
+```javascript
+// Usage
+const debouncedSearch = debounce((query) => {
+  console.log("Searching:", query);
+  fetchSearchResults(query);
+}, 300);
+
+searchInput.addEventListener("input", (e) => {
+  debouncedSearch(e.target.value);
+});
+
+// User types "javascript" quickly:
+// Only ONE API call after they stop typing for 300ms
+// Searching: "javascript"
+```
+
+**Timeline visualization:**
+```
+User types:  j---a---v---a---s---c---r---i---p---t
+Timer:       [300ms reset each time................]
+Executes:                                           → "javascript" (once)
+```
+
+**Common use cases:**
+- Search input / autocomplete
+- Window resize handler
+- Auto-saving form drafts
+- Validating input fields after user finishes typing
+
+### Throttling
+
+Throttling limits execution to at most once per specified interval. No matter how many times the action is triggered, the function fires at a steady rate.
+
+Think of it like a machine gun with a fire rate cap — no matter how fast you pull the trigger, it only fires once per interval.
+
+```javascript
+function throttle(fn, limit) {
+  let inThrottle = false;
+
+  return function(...args) {
+    if (!inThrottle) {
+      fn.apply(this, args);
+      inThrottle = true;
+      setTimeout(() => {
+        inThrottle = false;
+      }, limit);
+    }
+  };
+}
+```
+
+```javascript
+// Usage
+const throttledScroll = throttle(() => {
+  console.log("Scroll position:", window.scrollY);
+  updateScrollIndicator();
+}, 200);
+
+window.addEventListener("scroll", throttledScroll);
+
+// User scrolls continuously for 1 second:
+// Fires at 0ms, 200ms, 400ms, 600ms, 800ms → 5 calls
+// Without throttle → could be 50+ calls
+```
+
+**Timeline visualization:**
+```
+Events:    x-x-x-x-x-x-x-x-x-x-x-x-x-x-x
+Throttle:  ✓-----✓-----✓-----✓-----✓-----
+           [200ms][200ms][200ms][200ms]
+```
+
+**Common use cases:**
+- Scroll event handlers (infinite scroll, parallax, scroll indicators)
+- Mouse move tracking
+- Rate-limiting API calls
+- Game loop inputs (keyboard/mouse)
+
+### Debouncing vs Throttling
+```
+                  | When it fires                    | # of executions
+------------------|----------------------------------|------------------
+Debounce          | After user STOPS for X ms        | Once (at the end)
+Throttle          | Every X ms while action happens  | Multiple (at steady rate)
+```
+```
+User clicks rapidly for 1 second (20 clicks), delay = 300ms:
+
+Debounce:  ________________________________✓  (1 call, 300ms after last click)
+
+Throttle:  ✓________✓________✓________✓       (4 calls, every 300ms)
+```
+
+**How to choose:**
+- Need the *final* value after activity stops? → **Debounce** (search input, resize, auto-save)
+- Need *consistent updates* during activity? → **Throttle** (scroll, mousemove, game input)
+
+### Leading vs Trailing execution
+
+The implementations above are **trailing** — they execute *after* the delay. Sometimes you want **leading** execution — fire immediately on the first trigger, then wait.
+
+**Leading debounce:**
+```javascript
+function debounceLeading(fn, delay) {
+  let timerId;
+
+  return function(...args) {
+    if (!timerId) {
+      fn.apply(this, args); // fire immediately on first call
+    }
+    clearTimeout(timerId);
+    timerId = setTimeout(() => {
+      timerId = null; // reset so next burst triggers immediately again
+    }, delay);
+  };
+}
+```
+```
+Trailing:  ___________✓  (fires after user stops)
+Leading:   ✓___________  (fires immediately, then waits)
+```
+
+Use case for leading: a submit button you want to respond to immediately but prevent double-clicks.
+
+### requestAnimationFrame as a throttle
+
+For visual/DOM updates, `requestAnimationFrame` is a better throttle than `setTimeout` because it syncs with the browser's repaint cycle (~60fps = every ~16ms).
+```javascript
+function rafThrottle(fn) {
+  let ticking = false;
+
+  return function(...args) {
+    if (!ticking) {
+      ticking = true;
+      requestAnimationFrame(() => {
+        fn.apply(this, args);
+        ticking = false;
+      });
+    }
+  };
+}
+
+// Usage — smooth scroll handler
+window.addEventListener("scroll", rafThrottle(() => {
+  // DOM updates here run at 60fps max
+  updateParallax();
+}));
+```
+
+📢 NOTES:
+
+> In React, you typically debounce/throttle inside a `useRef` or `useCallback` to prevent the function from being recreated on every render:
+```javascript
+function SearchInput() {
+  const debouncedSearch = useRef(
+    debounce((query) => fetchResults(query), 300)
+  ).current;
+
+  // cleanup on unmount
+  useEffect(() => {
+    return () => debouncedSearch.cancel?.();
+  }, []);
+
+  return <input onChange={(e) => debouncedSearch(e.target.value)} />;
+}
+```
 
 See the code for [debouncing function](https://github.com/akshaitr/js-polyfills/blob/main/src/debounce.js)
-
-Throttling is a technique to limit the execution of an event handler function even when this event is triggered continuously due to user actions.
-
 See the code for [throttle function](https://github.com/akshaitr/js-polyfills/blob/main/src/throttle.js)
-
-### Debouncing vs Throttling: Key Differences
-
-- Execution Frequency: Debouncing postpones the execution until after a period of inactivity, while throttling limits the execution to a fixed number of times over an interval.
-- Use Cases: Debouncing is ideal for tasks that don’t need to execute repeatedly in quick succession, such as API calls based on user input. Throttling is suited for controlling the execution rate of functions called in response to events like scrolling or resizing.
 
 # Compose and Pipe
 
