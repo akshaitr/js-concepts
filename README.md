@@ -909,6 +909,31 @@ function setup() {
 
 # Objects
 
+An object is a collection of key-value pairs. Keys are strings (or Symbols), and values can be anything — primitives, arrays, functions, or other objects.
+```javascript
+const user = {
+  name: "Akshai",
+  age: 28,
+  greet() {
+    return `Hello, I'm ${this.name}`;
+  }
+};
+
+// Accessing properties
+user.name;           // "Akshai" — dot notation
+user["age"];         // 28 — bracket notation
+
+// Adding properties
+user.city = "Chennai";
+
+// Deleting properties
+delete user.city;
+```
+
+📢 NOTES:
+
+> `delete` only works on object properties. It does not work on variables or function parameters.
+
 ${\textsf{\color{khaki}Guess\ the\ output}}$
 ```javascript
 const result = (function (num) {
@@ -919,16 +944,9 @@ const result = (function (num) {
 console.log(result);
 ```
 
-${\textsf{\color{khaki}Guess\ the\ output}}$
-```javascript
-const obj = {
-  a: "one",
-  b: "two",
-  a: "three",
-};
+### Object keys are always strings
 
-console.log(obj);
-```
+When you use a non-string value as a key, JavaScript converts it to a string using `.toString()`.
 
 ${\textsf{\color{khaki}Guess\ the\ output}}$
 ```javascript
@@ -948,63 +966,24 @@ a[c] = 456;
 console.log(a[b]);
 ```
 
-${\textsf{\color{khaki}Guess\ the\ output}}$
-```javascript
-console.log([..."Akshai"]);
-```
+### Duplicate keys
+
+When an object has duplicate keys, the last one wins.
 
 ${\textsf{\color{khaki}Guess\ the\ output}}$
 ```javascript
-const user = {
-  name: "Akshai",
-  age: 28,
+const obj = {
+  a: "one",
+  b: "two",
+  a: "three",
 };
 
-const admin = {
-  admin: true,
-  ...user,
-};
-
-console.log(admin);
+console.log(obj);
 ```
 
-${\textsf{\color{khaki}Guess\ the\ output}}$
-```javascript
-const settings = {
-  username: "Akshai",
-  level: 19,
-  health: 90,
-};
+### Object references
 
-const data = JSON.stringify(settings, ["level", "health"]);
-
-console.log(data);
-```
-
-${\textsf{\color{khaki}Guess\ the\ output}}$
-```javascript
-const shape = {
-  radius: 10,
-  diameter() {
-    return this.radius * 2;
-  },
-  perimeter: () => {
-    return 2 * Math.PI * this.radius;
-  },
-};
-
-console.log(shape.diameter());
-console.log(shape.perimeter());
-```
-
-${\textsf{\color{khaki}Guess\ the\ output}}$
-```javascript
-function getItems(fruitList, ...args, favouriteFruit) {
-  return [...fruitList, ...args, favouriteFruit];
-}
-
-getItems(["banana", "apple"], "pear", "orange");
-```
+Objects are reference types. Variables don't hold the object — they hold a pointer to it.
 
 ${\textsf{\color{khaki}Guess\ the\ output}}$
 ```javascript
@@ -1036,22 +1015,6 @@ console.log(members);
 
 ${\textsf{\color{khaki}Guess\ the\ output}}$
 ```javascript
-const values = {
-  number: 10,
-};
-
-const multiply = (x = { ...values }) => {
-  console.log(x.number *= 2);
-};
-
-multiply();
-multiply();
-multiply(values);
-multiply(values);
-```
-
-${\textsf{\color{khaki}Guess\ the\ output}}$
-```javascript
 function changeAgeAndReference(person) {
   person.age = 25;
   person = {
@@ -1072,6 +1035,145 @@ console.log(person1);
 console.log(person2);
 ```
 
+### Spread operator with objects
+
+${\textsf{\color{khaki}Guess\ the\ output}}$
+```javascript
+console.log([..."Akshai"]);
+```
+
+${\textsf{\color{khaki}Guess\ the\ output}}$
+```javascript
+const user = {
+  name: "Akshai",
+  age: 28,
+};
+
+const admin = {
+  admin: true,
+  ...user,
+};
+
+console.log(admin);
+```
+
+📢 NOTES:
+
+> Spread order matters. Properties that come later overwrite earlier ones:
+```javascript
+const defaults = { theme: "light", lang: "en" };
+const userPrefs = { theme: "dark" };
+
+const settings = { ...defaults, ...userPrefs };
+// { theme: "dark", lang: "en" } — userPrefs.theme overwrites defaults.theme
+```
+
+### Default parameter gotcha with objects
+
+${\textsf{\color{khaki}Guess\ the\ output}}$
+```javascript
+const values = {
+  number: 10,
+};
+
+const multiply = (x = { ...values }) => {
+  console.log(x.number *= 2);
+};
+
+multiply();
+multiply();
+multiply(values);
+multiply(values);
+```
+
+> When no argument is passed, the default `{ ...values }` creates a new copy each time. When `values` is passed directly, mutations affect the original object.
+
+### Useful object methods
+
+**Object.keys(), Object.values(), Object.entries()**
+```javascript
+// freeze — cannot add, remove, or modify properties
+const frozen = Object.freeze({ name: "Akshai", age: 28 });
+frozen.name = "Kumar";   // silently fails (or throws in strict mode)
+frozen.city = "Chennai"; // silently fails
+delete frozen.name;      // silently fails
+console.log(frozen);     // { name: "Akshai", age: 28 }
+
+// seal — cannot add or remove, but CAN modify existing properties
+const sealed = Object.seal({ name: "Akshai", age: 28 });
+sealed.name = "Kumar";   // ✅ works
+sealed.city = "Chennai"; // silently fails
+delete sealed.name;      // silently fails
+console.log(sealed);     // { name: "Kumar", age: 28 }
+```
+
+📢 NOTES:
+
+> Both `freeze` and `seal` are shallow. Nested objects are not affected:
+```javascript
+const user = Object.freeze({
+  name: "Akshai",
+  address: { city: "Chennai" }
+});
+
+user.address.city = "Mumbai"; // ✅ works — nested object is not frozen
+```
+
+**Object.assign()**
+```javascript
+const target = { a: 1 };
+const source = { b: 2, c: 3 };
+
+Object.assign(target, source);
+console.log(target); // { a: 1, b: 2, c: 3 } — target is mutated
+```
+
+### JSON methods
+
+**JSON.stringify() — object to string**
+
+${\textsf{\color{khaki}Guess\ the\ output}}$
+```javascript
+const settings = {
+  username: "Akshai",
+  level: 19,
+  health: 90,
+};
+
+const data = JSON.stringify(settings, ["level", "health"]);
+
+console.log(data);
+```
+
+**JSON.parse() — string to object**
+```javascript
+const json = '{"name":"Akshai","age":28}';
+const obj = JSON.parse(json);
+console.log(obj.name); // "Akshai"
+```
+
+📢 NOTES:
+
+> `JSON.stringify()` ignores `undefined`, functions, and Symbols:
+```javascript
+const obj = {
+  name: "Akshai",
+  greet: function() {},
+  age: undefined,
+  id: Symbol("id")
+};
+
+JSON.stringify(obj);
+// '{"name":"Akshai"}' — greet, age, and id are all stripped
+```
+
+> Circular references throw an error:
+```javascript
+const a = {};
+a.self = a;
+JSON.stringify(a); // ❌ TypeError: Converting circular structure to JSON
+```
+
 ### How to clone/deep copy an object in JavaScript?
 
 ```javascript
@@ -1081,26 +1183,112 @@ let user = {
 };
 ```
 
-- Using Spread Operator
-  ```javascript
-  const clonedUser = { ...user, name: "Akshai" };
-  ```
-- Using Object.assign() method
-  ```javascript
-  const clonedUser = Object.assign({}, user);
-  clonedUser.name = "Akshai";
-  ```
-- Using JSON.parse() and JSON.stringify()
-  ```javascript
-  const clonedUser = JSON.parse(JSON.stringify(user));
-  clonedUser.name = "Akshai";
-  ```
-- Using structuredClone() global function
-  ```javascript
-  const clonedUser = structuredClone(user)
-  ```
+**Shallow copy methods** — only copy the top level. Nested objects are still shared:
+```javascript
+// Spread operator
+const clone1 = { ...user };
+
+// Object.assign
+const clone2 = Object.assign({}, user);
+```
+
+**Deep copy methods** — create completely independent copies including nested objects:
+```javascript
+// JSON parse + stringify
+// ⚠️ Loses functions, undefined, Symbols, Dates become strings
+const clone3 = JSON.parse(JSON.stringify(user));
+
+// structuredClone (modern, recommended)
+// ✅ Handles nested objects, Dates, Maps, Sets, ArrayBuffers
+// ❌ Cannot clone functions or DOM elements
+const clone4 = structuredClone(user);
+```
+
+**When to use which:**
+
+- Simple flat object → spread operator (fastest, most readable)
+- Flat object with many properties → `Object.assign()`
+- Nested object without functions → `structuredClone()` (modern) or `JSON.parse(JSON.stringify())` (legacy)
+- Full control needed → write a recursive deep clone function
 
 [Polyfill for deep clone](https://github.com/akshaitr/js-polyfills/blob/main/src/deepClone.js)
+
+### Destructuring
+
+```javascript
+// Object destructuring
+const user = { name: "Akshai", age: 28, city: "Chennai" };
+const { name, age } = user;
+
+// With renaming
+const { name: userName } = user; // userName = "Akshai"
+
+// With defaults
+const { country = "India" } = user; // country = "India" (doesn't exist in user)
+
+// Nested destructuring
+const response = {
+  data: {
+    user: {
+      name: "Akshai"
+    }
+  }
+};
+
+const { data: { user: { name: deepName } } } = response;
+console.log(deepName); // "Akshai"
+```
+
+### Optional chaining and nullish coalescing
+```javascript
+const user = {
+  name: "Akshai",
+  address: null
+};
+
+// Without optional chaining
+const city = user.address && user.address.city; // null
+
+// With optional chaining
+const city = user.address?.city;        // undefined — no crash
+const zip = user.address?.zip?.code;    // undefined — safe at any depth
+
+// Works with methods too
+user.getName?.(); // undefined if getName doesn't exist
+
+// Nullish coalescing — default for null/undefined only
+const theme = user.theme ?? "light";    // "light"
+
+// Difference from ||
+const count = 0;
+count || 10;   // 10 — because 0 is falsy
+count ?? 10;   // 0 — because 0 is not null/undefined
+```
+
+${\textsf{\color{khaki}Guess\ the\ output}}$
+```javascript
+const shape = {
+  radius: 10,
+  diameter() {
+    return this.radius * 2;
+  },
+  perimeter: () => {
+    return 2 * Math.PI * this.radius;
+  },
+};
+
+console.log(shape.diameter());
+console.log(shape.perimeter());
+```
+
+${\textsf{\color{khaki}Guess\ the\ output}}$
+```javascript
+function getItems(fruitList, ...args, favouriteFruit) {
+  return [...fruitList, ...args, favouriteFruit];
+}
+
+getItems(["banana", "apple"], "pear", "orange");
+```
 
 # Binding
 
