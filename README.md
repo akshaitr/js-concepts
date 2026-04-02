@@ -17,6 +17,7 @@
 15. [Error Handling](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#error-handling)
 16. [Generators and Iterators](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#generators-and-iterators)
 17. [WeakMap and WeakSet](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#weakmap-and-weakset)
+18. [Symbol](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#symbol)
 
 # Execution Context
 
@@ -4131,3 +4132,102 @@ Iterable       | Yes                  | No
 Use case       | General key-value    | Metadata, caching,
                | storage              | private data
 ```
+
+# Symbol
+
+### What is a Symbol?
+
+A Symbol is a primitive type that is guaranteed to be unique. Every `Symbol()` call creates a completely new value, even with the same description.
+```javascript
+const a = Symbol("id");
+const b = Symbol("id");
+console.log(a === b);   // false — every Symbol is unique
+console.log(typeof a);  // "symbol"
+```
+
+### Why Symbols exist
+
+**1. Guaranteed unique property keys — no collisions**
+```javascript
+// Problem: two libraries both want to add metadata to the same object
+// Without Symbols — collision risk
+obj.id = "library1-id";
+obj.id = "library2-id"; // overwrites library1's id!
+
+// With Symbols — guaranteed unique
+const lib1Id = Symbol("id");
+const lib2Id = Symbol("id");
+
+obj[lib1Id] = "library1-id";
+obj[lib2Id] = "library2-id"; // no collision — different Symbols
+```
+
+**2. Hidden properties — don't show up in normal iteration**
+```javascript
+const role = Symbol("role");
+
+const user = {
+  name: "Akshai",
+  age: 28,
+  [role]: "admin"
+};
+
+Object.keys(user);         // ["name", "age"] — Symbol not included
+JSON.stringify(user);      // '{"name":"Akshai","age":28}' — Symbol not included
+for (const key in user) {} // only "name" and "age"
+
+// Accessing Symbol properties requires the Symbol reference
+user[role];                          // "admin"
+Object.getOwnPropertySymbols(user);  // [Symbol(role)]
+```
+
+### Well-known Symbols
+
+JavaScript uses built-in Symbols to let you customize object behavior:
+```javascript
+// Symbol.iterator — makes an object iterable (covered in Generators section)
+const range = {
+  [Symbol.iterator]() {
+    let i = 0;
+    return { next: () => ({ value: i++, done: i > 3 }) };
+  }
+};
+[...range]; // [0, 1, 2]
+
+// Symbol.toPrimitive — controls type coercion
+class Money {
+  constructor(amount, currency) {
+    this.amount = amount;
+    this.currency = currency;
+  }
+
+  [Symbol.toPrimitive](hint) {
+    if (hint === "number") return this.amount;
+    if (hint === "string") return `${this.amount} ${this.currency}`;
+    return this.amount; // default
+  }
+}
+
+const price = new Money(100, "USD");
++price;             // 100 (number hint)
+`${price}`;         // "100 USD" (string hint)
+price + 50;         // 150 (default hint)
+```
+
+### Symbol.for() — global registry
+
+`Symbol()` always creates a new Symbol. `Symbol.for()` checks a global registry first and reuses existing ones:
+```javascript
+const a = Symbol.for("shared");
+const b = Symbol.for("shared");
+console.log(a === b); // true — same Symbol from registry
+
+// Look up the key for a global Symbol
+Symbol.keyFor(a); // "shared"
+
+// Regular Symbols are NOT in the registry
+const c = Symbol("local");
+Symbol.keyFor(c); // undefined
+```
+
+Use case: when separate parts of your code (or separate libraries) need to share the same Symbol.
