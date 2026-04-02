@@ -22,6 +22,7 @@
 20. [Modules](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#modules)
 21. [Currying](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#currying)
 22. [Structured Clone and Data Copying](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#structured-clone-and-data-copying)
+23. [WeakRef and FinalizationRegistry](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#weakref-and-finalizationregistry)
 
 # Execution Context
 
@@ -4780,3 +4781,78 @@ JSON parse/stringify    | Deep    | ❌ Many limitations   | Slow
 structuredClone()       | Deep    | ✅ Most types         | Medium
 Custom recursive clone  | Deep    | ✅ Full control       | Depends
 ```
+
+# WeakRef and FinalizationRegistry
+
+### WeakRef
+
+A WeakRef lets you hold a reference to an object without preventing it from being garbage collected. Unlike WeakMap where the key is weak, WeakRef gives you a weak reference to any object.
+```javascript
+let largeObject = { data: new Array(1000000).fill("x") };
+const weakRef = new WeakRef(largeObject);
+
+// Access the object — returns the object or undefined if GC'd
+console.log(weakRef.deref()); // { data: [...] }
+
+largeObject = null; // remove strong reference
+
+// At some point after GC runs:
+console.log(weakRef.deref()); // undefined — object was collected
+```
+
+📢 NOTES:
+
+> You must always check if `deref()` returns undefined before using the value. Garbage collection is non-deterministic — you can't predict when or if the object will be collected.
+
+**Practical use case — caching with automatic cleanup:**
+```javascript
+class WeakCache {
+  #cache = new Map();
+
+  set(key, value) {
+    this.#cache.set(key, new WeakRef(value));
+  }
+
+  get(key) {
+    const ref = this.#cache.get(key);
+    if (!ref) return undefined;
+
+    const value = ref.deref();
+    if (value === undefined) {
+      this.#cache.delete(key); // clean up dead reference
+    }
+    return value;
+  }
+}
+
+let bigData = { items: new Array(1000000) };
+const cache = new WeakCache();
+cache.set("data", bigData);
+
+cache.get("data"); // { items: [...] }
+
+bigData = null;
+// Eventually after GC:
+cache.get("data"); // undefined — automatically cleaned up
+```
+
+### FinalizationRegistry
+
+Lets you register a callback that runs when an object is garbage collected. Useful for cleanup of external resources.
+```javascript
+const registry = new FinalizationRegistry((heldValue) => {
+  console.log(`Object with id ${heldValue} was garbage collected`);
+  // Clean up external resource (close file, release memory, etc.)
+});
+
+let user = { name: "Akshai" };
+registry.register(user, "user-123"); // "user-123" is passed to the callback
+
+user = null;
+// Eventually: "Object with id user-123 was garbage collected"
+```
+
+📢 NOTES:
+
+> WeakRef and FinalizationRegistry should be used sparingly — they're low-level tools for specific scenarios like caching and resource management. Don't use them for general application logic. GC behavior is unpredictable, so your code should never depend on the callback firing at a specific time.
+
