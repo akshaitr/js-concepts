@@ -1477,10 +1477,10 @@ function Person(name) {
 }
 
 const p1 = new Person("Akshai");
-const p2 = new Person("Aiswarya");
+const p2 = new Person("Kumar");
 
 p1.greet(); // "Hi, I'm Akshai"
-p2.greet(); // "Hi, I'm Aiswarya"
+p2.greet(); // "Hi, I'm Kumar"
 ```
 
 What `new` does behind the scenes:
@@ -2409,14 +2409,153 @@ See the code for [throttle function](https://github.com/akshaitr/js-polyfills/bl
 
 # Compose and Pipe
 
-Compose and pipe are higher order functions used in JavaScript for function composition.
+Both are techniques for combining multiple functions into a single function. Instead of nesting function calls, you create a clean pipeline where data flows through a series of transformations.
 
-Compose takes multiple functions as arguments and return a new function that applies these functions from right to left.
+### The problem
+```javascript
+// Without compose/pipe — deeply nested, read inside-out
+const result = uppercase(trim(addExclamation("  hello world  ")));
+// Hard to read: which function runs first?
+
+// With pipe — read left to right, like a recipe
+const transform = pipe(trim, addExclamation, uppercase);
+const result = transform("  hello world  ");
+// Clear: trim first, then add exclamation, then uppercase
+```
+
+### Compose
+
+Compose takes multiple functions and returns a new function that applies them **right to left**. The output of each function becomes the input of the next one to its left.
+```javascript
+function compose(...fns) {
+  return function(arg) {
+    return fns.reduceRight((result, fn) => fn(result), arg);
+  };
+}
+```
+
+```javascript
+const add10 = (num) => num + 10;
+const multiply2 = (num) => num * 2;
+const subtract5 = (num) => num - 5;
+
+const compute = compose(subtract5, multiply2, add10);
+
+compute(5);
+// Step 1 (rightmost): add10(5) = 15
+// Step 2: multiply2(15) = 30
+// Step 3 (leftmost): subtract5(30) = 25
+```
+
+📢 NOTES:
+
+> Compose reads right to left — this matches how nested function calls work mathematically: `f(g(x))` means apply `g` first, then `f`. If you're comfortable with math notation, compose feels natural. If not, pipe is easier.
+
+### Pipe
+
+Pipe does the same thing but applies functions **left to right**. This reads more naturally for most people since it follows the order you'd describe the steps.
+```javascript
+function pipe(...fns) {
+  return function(arg) {
+    return fns.reduce((result, fn) => fn(result), arg);
+  };
+}
+```
+```javascript
+const compute = pipe(add10, multiply2, subtract5);
+
+compute(5);
+// Step 1 (leftmost): add10(5) = 15
+// Step 2: multiply2(15) = 30
+// Step 3 (rightmost): subtract5(30) = 25
+```
+
+Same result, same functions — just different order of arguments.
+
+### Compose vs Pipe
+```
+compose(f, g, h)(x)  →  f(g(h(x)))     // right to left
+pipe(f, g, h)(x)     →  h(g(f(x)))     // left to right
+
+// Same result if you reverse the function order:
+compose(subtract5, multiply2, add10)(5)  // 25
+pipe(add10, multiply2, subtract5)(5)     // 25
+```
+
+### Practical examples
+
+**String transformation pipeline:**
+```javascript
+const trim = (str) => str.trim();
+const toLowerCase = (str) => str.toLowerCase();
+const replaceSpaces = (str) => str.replace(/\s+/g, "-");
+
+const slugify = pipe(trim, toLowerCase, replaceSpaces);
+
+slugify("  Hello World  "); // "hello-world"
+slugify("  JavaScript Is Fun  "); // "javascript-is-fun"
+```
+
+**Data processing:**
+```javascript
+const filterActive = (users) => users.filter(u => u.active);
+const sortByName = (users) => [...users].sort((a, b) => a.name.localeCompare(b.name));
+const getNames = (users) => users.map(u => u.name);
+
+const getActiveSortedNames = pipe(filterActive, sortByName, getNames);
+
+const users = [
+  { name: "Zara", active: true },
+  { name: "Akshai", active: true },
+  { name: "Kumar", active: false },
+  { name: "Priya", active: true },
+];
+
+getActiveSortedNames(users);
+// ["Akshai", "Priya", "Zara"]
+```
+
+### Where you see this pattern
+
+You already use this concept without calling it compose/pipe:
+```javascript
+// Array method chaining — this IS piping
+const result = users
+  .filter(u => u.active)
+  .sort((a, b) => a.name.localeCompare(b.name))
+  .map(u => u.name);
+
+// Redux middleware — compose pattern
+const store = createStore(
+  reducer,
+  compose(
+    applyMiddleware(thunk, logger),
+    devToolsEnhancer()
+  )
+);
+
+// Express middleware — pipe pattern
+app.use(authenticate);
+app.use(validate);
+app.use(handleRequest);
+// Request flows: authenticate → validate → handleRequest
+```
+
+📢 NOTES:
+
+> Each function in a compose/pipe chain must take one argument and return one value. This constraint is called a **unary function**. If a function needs multiple arguments, wrap it using currying or partial application:
+```javascript
+// This won't work in a pipe — multiply takes two arguments
+const multiply = (a, b) => a * b;
+
+// Curried version — works in a pipe
+const multiplyBy = (factor) => (num) => num * factor;
+
+const transform = pipe(add10, multiplyBy(2), subtract5);
+transform(5); // 25
+```
 
 See the code for [compose function](https://github.com/akshaitr/js-polyfills/blob/main/src/compose.js)
-
-Pipe, on the other hand, applies the functions from left to right.
-
 See the code for [pipe function](https://github.com/akshaitr/js-polyfills/blob/main/src/pipe.js)
 
 # Prototypes
