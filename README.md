@@ -16,6 +16,7 @@
 14. [Event Loop](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#event-loop)
 15. [Error Handling](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#error-handling)
 16. [Generators and Iterators](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#generators-and-iterators)
+17. [WeakMap and WeakSet](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#weakmap-and-weakset)
 
 # Execution Context
 
@@ -3993,4 +3994,140 @@ async function* fetchPages(url) {
 const pages = fetchPages("/api/users");
 const page1 = await pages.next(); // fetches page 1
 const page2 = await pages.next(); // fetches page 2 only when needed
+```
+
+# WeakMap and WeakSet
+
+### The garbage collection problem
+
+Regular Maps and Sets hold strong references to their keys/values — even if the original object is no longer used elsewhere, the Map/Set prevents it from being garbage collected.
+```javascript
+let user = { name: "Akshai" };
+const metadata = new Map();
+metadata.set(user, { lastLogin: "today" });
+
+user = null; // we're done with user
+// BUT the Map still holds a reference to the object
+// It will NEVER be garbage collected as long as the Map exists
+```
+
+### WeakMap
+
+A WeakMap holds **weak references** to its keys. If the key object has no other references, it gets garbage collected automatically — and the entry disappears from the WeakMap.
+```javascript
+let user = { name: "Akshai" };
+const weakMeta = new WeakMap();
+weakMeta.set(user, { lastLogin: "today" });
+
+user = null;
+// The { name: "Akshai" } object can now be garbage collected
+// The WeakMap entry is automatically removed
+```
+
+**Constraints:**
+- Keys MUST be objects (not primitives)
+- Not iterable — no `.forEach()`, `.keys()`, `.values()`, `.entries()`
+- No `.size` property
+- Only has `.get()`, `.set()`, `.has()`, `.delete()`
+
+**Why these constraints?** Because garbage collection is non-deterministic — you can't know when or if an entry will be removed, so iteration would give unpredictable results.
+
+**Practical use case — private data:**
+```javascript
+const privateData = new WeakMap();
+
+class User {
+  constructor(name, password) {
+    this.name = name;
+    privateData.set(this, { password }); // truly private, not on the instance
+  }
+
+  checkPassword(input) {
+    return privateData.get(this).password === input;
+  }
+}
+
+const user = new User("Akshai", "secret123");
+user.name;               // "Akshai" — public
+user.password;           // undefined — not on the object
+user.checkPassword("secret123"); // true
+```
+
+**Practical use case — caching expensive computations:**
+```javascript
+const cache = new WeakMap();
+
+function expensiveProcess(obj) {
+  if (cache.has(obj)) {
+    return cache.get(obj);
+  }
+
+  const result = /* expensive computation */ obj.data.length * 100;
+  cache.set(obj, result);
+  return result;
+}
+
+let bigData = { data: new Array(1000000) };
+expensiveProcess(bigData); // computes
+expensiveProcess(bigData); // from cache
+
+bigData = null;
+// Cache entry is automatically cleaned up — no memory leak
+```
+
+**Practical use case — DOM element metadata:**
+```javascript
+const elementData = new WeakMap();
+
+function trackClicks(element) {
+  if (!elementData.has(element)) {
+    elementData.set(element, { clicks: 0 });
+  }
+
+  element.addEventListener("click", () => {
+    const data = elementData.get(element);
+    data.clicks++;
+  });
+}
+
+// When the DOM element is removed and garbage collected,
+// the WeakMap entry is automatically cleaned up
+```
+
+### WeakSet
+
+Same concept as WeakMap but for values instead of key-value pairs. Tracks whether an object is in the set without preventing garbage collection.
+```javascript
+const visited = new WeakSet();
+
+function processOnce(obj) {
+  if (visited.has(obj)) {
+    console.log("Already processed");
+    return;
+  }
+
+  visited.add(obj);
+  console.log("Processing:", obj.name);
+}
+
+let user1 = { name: "Akshai" };
+let user2 = { name: "Kumar" };
+
+processOnce(user1); // "Processing: Akshai"
+processOnce(user1); // "Already processed"
+processOnce(user2); // "Processing: Kumar"
+
+user1 = null; // WeakSet automatically cleans up the entry
+```
+
+### Map vs WeakMap
+```
+Feature        | Map                  | WeakMap
+---------------|----------------------|-------------------
+Keys           | Any type             | Objects only
+Garbage collect| No — strong ref      | Yes — weak ref
+Iterable       | Yes                  | No
+.size          | Yes                  | No
+Use case       | General key-value    | Metadata, caching,
+               | storage              | private data
 ```
