@@ -20,6 +20,7 @@
 18. [Symbol](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#symbol)
 19. [Proxy and Reflect](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#proxy-and-reflect)
 20. [Modules](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#modules)
+21. [Currying](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#currying)
 
 # Execution Context
 
@@ -4501,3 +4502,169 @@ const LazyComponent = React.lazy(() => import("./HeavyComponent"));
 ```
 
 This is what powers code splitting in React — `import()` tells the bundler to create a separate chunk that's loaded only when needed.
+
+# Currying
+
+Currying transforms a function that takes multiple arguments into a sequence of functions that each take a single argument.
+```javascript
+// Normal function
+function add(a, b, c) {
+  return a + b + c;
+}
+add(1, 2, 3); // 6
+
+// Curried version
+function curriedAdd(a) {
+  return function(b) {
+    return function(c) {
+      return a + b + c;
+    };
+  };
+}
+curriedAdd(1)(2)(3); // 6
+
+// Arrow function shorthand
+const curriedAdd = (a) => (b) => (c) => a + b + c;
+```
+
+### Why currying is useful
+
+**1. Creating specialized functions from generic ones**
+```javascript
+const multiply = (a) => (b) => a * b;
+
+const double = multiply(2);
+const triple = multiply(3);
+const tenTimes = multiply(10);
+
+double(5);   // 10
+triple(5);   // 15
+tenTimes(5); // 50
+
+// Without currying you'd write:
+function double(n) { return multiply(2, n); }
+function triple(n) { return multiply(3, n); }
+// More boilerplate, same result
+```
+
+**2. Configurable utility functions**
+```javascript
+const log = (level) => (prefix) => (message) => {
+  console.log(`[${level}] ${prefix}: ${message}`);
+};
+
+const errorLog = log("ERROR");
+const errorAuth = errorLog("AUTH");
+const errorDB = errorLog("DB");
+
+errorAuth("Invalid token");  // [ERROR] AUTH: Invalid token
+errorDB("Connection lost");  // [ERROR] DB: Connection lost
+
+// Configure once, use everywhere — no repeating level and prefix
+```
+
+**3. Works perfectly with compose and pipe**
+```javascript
+// Compose/pipe require unary functions (one argument)
+// Currying makes multi-argument functions work in pipelines
+
+const filterBy = (key) => (value) => (arr) =>
+  arr.filter(item => item[key] === value);
+
+const mapTo = (key) => (arr) =>
+  arr.map(item => item[key]);
+
+const sortBy = (key) => (arr) =>
+  [...arr].sort((a, b) => a[key].localeCompare(b[key]));
+
+const getActiveUserNames = pipe(
+  filterBy("status")("active"),
+  sortBy("name"),
+  mapTo("name")
+);
+
+const users = [
+  { name: "Zara", status: "active" },
+  { name: "Akshai", status: "active" },
+  { name: "Kumar", status: "inactive" },
+];
+
+getActiveUserNames(users); // ["Akshai", "Zara"]
+```
+
+**4. Event handler factories in React**
+```javascript
+// You already do this — it's currying
+const handleChange = (field) => (event) => {
+  setForm(prev => ({ ...prev, [field]: event.target.value }));
+};
+
+<input onChange={handleChange("email")} />
+<input onChange={handleChange("password")} />
+```
+
+### Generic curry utility
+
+A function that converts any regular function into a curried one:
+```javascript
+function curry(fn) {
+  return function curried(...args) {
+    if (args.length >= fn.length) {
+      return fn.apply(this, args);
+    }
+    return function(...nextArgs) {
+      return curried.apply(this, [...args, ...nextArgs]);
+    };
+  };
+}
+
+// Usage
+function add(a, b, c) {
+  return a + b + c;
+}
+
+const curriedAdd = curry(add);
+
+// All of these work:
+curriedAdd(1)(2)(3);    // 6
+curriedAdd(1, 2)(3);    // 6
+curriedAdd(1)(2, 3);    // 6
+curriedAdd(1, 2, 3);    // 6
+```
+
+📢 NOTES:
+
+> `fn.length` returns the number of parameters a function expects. The curry utility uses this to know when all arguments have been collected.
+```javascript
+function add(a, b, c) {}
+add.length; // 3
+
+// Rest params and defaults don't count
+function demo(a, b, ...rest) {}
+demo.length; // 2
+
+function demo2(a, b = 10) {}
+demo2.length; // 1 — stops counting at first default
+```
+
+### Partial application vs Currying
+
+These are related but different:
+```javascript
+// Currying — always returns unary functions in a chain
+const add = (a) => (b) => (c) => a + b + c;
+add(1)(2)(3);
+
+// Partial application — fix some arguments, return function for the rest
+function add(a, b, c) {
+  return a + b + c;
+}
+
+const addTo10 = add.bind(null, 10);     // fixes first arg
+addTo10(2, 3);                           // 15
+
+const addTo10And20 = add.bind(null, 10, 20); // fixes first two args
+addTo10And20(3);                               // 33
+```
+
+Currying always produces a chain of single-argument functions. Partial application fixes some arguments and lets you pass the rest in one call. The curry utility above actually supports both patterns.
