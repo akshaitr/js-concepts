@@ -2906,9 +2906,9 @@ console.log(user.name);          // "Akshai" — own property still works
                           │  hasOwnProperty()     │
                           │  valueOf()            │
                           └──────────┬────────────┘
-                    ┌────────────────┼──────────────────┐
-                    │                │                  │
-         ┌──────────▼──────┐  ┌─────▼─────────┐  ┌────▼──────────┐
+                 ┌───────────────────┼───────────────────┐
+                 │                   │                   │
+         ┌───────▼─────────┐  ┌──────▼────────┐  ┌───────▼───────┐
          │ Array.prototype │  │Function.proto │  │ Your object   │
          │ map()           │  │ call()        │  │ { key: val }  │
          │ filter()        │  │ apply()       │  └───────────────┘
@@ -2923,9 +2923,19 @@ console.log(user.name);          // "Akshai" — own property still works
 
 # Class and constructors
 
-A class is a blueprint that defines the structure and behavior of an object. Objects are instances of a class and possess the properties and methods defined by that class.
-
+Classes in JavaScript are syntactic sugar over prototypes. They don't introduce a new inheritance model — they just provide a cleaner syntax for what we did in the Prototypes section with constructor functions.
 ```javascript
+// Prototype way (old)
+function Rectangle(height, width) {
+  this.height = height;
+  this.width = width;
+}
+
+Rectangle.prototype.calcArea = function() {
+  return this.height * this.width;
+};
+
+// Class way (modern) — same thing underneath
 class Rectangle {
   constructor(height, width) {
     this.height = height;
@@ -2937,64 +2947,21 @@ class Rectangle {
   }
 }
 
-const rectangle = new Rectangle(4, 5);
+const rect = new Rectangle(4, 5);
+rect.calcArea(); // 20
 ```
 
-Classes in JS are built on prototypes but also have some syntax and semantics that are unique to classes.
-
+Both produce the exact same prototype chain. The `class` syntax is just easier to read and write.
 ```javascript
-function Rectangle(height, width) {
-  this.height = height;
-  this.width = width;
-}
-
-Rectangle.prototype.calcArea = function () {
-  return this.height * this.width;
-};
+// Proof that classes are just prototypes
+typeof Rectangle; // "function" — not "class"
+rect.__proto__ === Rectangle.prototype; // true
 ```
 
-### Class inheritance
+### Constructor
 
-The extends keyword is used in class declarations or class expressions to create a class that is a child of another class.
+The `constructor` method is a special method that runs when you create an instance with `new`. A class can only have one constructor.
 
-```javascript
-class Square extends Rectangle {}
-
-Square.prototype.calcParameter = function () {
-  return 2 * (this.height + this.width);
-};
-
-const square = new Square(8, 8);
-
-console.log(square.calcArea());
-
-console.log(square.calcParameter());
-```
-
-### Static properties and methods
-
-Static properties cannot be directly accessed on instances of the class. Instead, they're accessed on the class itself.
-
-Static methods are often utility functions, such as functions to create or clone objects, whereas static properties are useful for caches, fixed-configuration, or any other data you don't need to be replicated across instances.
-
-```javascript
-class ClassWithStaticMethod {
-  static staticProperty = 'someValue';
-  static staticMethod() {
-    return 'static method has been called.';
-  }
-  static {
-    console.log('Class static initialization block called');
-  }
-}
-
-console.log(ClassWithStaticMethod.staticProperty);
-// Expected output: "someValue"
-console.log(ClassWithStaticMethod.staticMethod());
-// Expected output: "static method has been called."
-```
-
-${\textsf{\color{khaki}Guess\ the\ output}}$
 ```javascript
 class Employee {
   constructor() {
@@ -3002,18 +2969,370 @@ class Employee {
   }
 
   constructor() {
-    this.age = 30
+    this.age = 30;
   }
 }
 
 const employee = new Employee();
-
 console.log(employee.name);
 ```
 
-📢 NOTES: 
+> ❌ SyntaxError: A class may only have one constructor — JavaScript doesn't allow multiple constructors like Java does with method overloading.
 
-> Defining a function in an object's prototype is better than defining it inside an object because it registers the method in the prototype, making it more memory efficient. When we define a method inside an object, it will create a closure for each instances created for that object.
+### Class expressions
+
+Just like functions, classes can be defined as expressions:
+```javascript
+// Named class expression
+const MyClass = class Rectangle {
+  constructor(h, w) {
+    this.height = h;
+    this.width = w;
+  }
+};
+
+// The name "Rectangle" is only accessible inside the class body
+console.log(MyClass.name); // "Rectangle"
+new Rectangle(4, 5);       // ❌ ReferenceError — not accessible outside
+
+// Anonymous class expression
+const Square = class {
+  constructor(side) {
+    this.side = side;
+  }
+};
+```
+
+### Class hoisting
+
+Unlike function declarations, classes are NOT hoisted. They behave like `let` and `const` — they exist in the temporal dead zone until the declaration is reached.
+```javascript
+const rect = new Rectangle(4, 5); // ❌ ReferenceError — can't access before declaration
+
+class Rectangle {
+  constructor(h, w) {
+    this.height = h;
+    this.width = w;
+  }
+}
+```
+
+### Methods
+```javascript
+class User {
+  constructor(name, email) {
+    this.name = name;
+    this.email = email;
+  }
+
+  // Instance method — defined on the prototype, shared by all instances
+  greet() {
+    return `Hi, I'm ${this.name}`;
+  }
+
+  // Getter — access like a property, not a method call
+  get displayName() {
+    return `${this.name} <${this.email}>`;
+  }
+
+  // Setter — assign like a property
+  set displayName(value) {
+    const [name, email] = value.split(" ");
+    this.name = name;
+    this.email = email;
+  }
+}
+
+const user = new User("Akshai", "akshai@email.com");
+
+user.greet();                // "Hi, I'm Akshai" — method call with ()
+user.displayName;            // "Akshai " — no () needed
+user.displayName = "Kumar kumar@email.com";
+user.name;                   // "Kumar"
+```
+
+### Static properties and methods
+
+Static members belong to the class itself, not to instances. They're accessed on the class directly.
+```javascript
+class MathUtils {
+  static PI = 3.14159;
+
+  static square(n) {
+    return n * n;
+  }
+
+  static max(...nums) {
+    return nums.reduce((a, b) => a > b ? a : b);
+  }
+}
+
+// Accessed on the class
+MathUtils.PI;          // 3.14159
+MathUtils.square(5);   // 25
+MathUtils.max(1, 5, 3); // 5
+
+// NOT on instances
+const m = new MathUtils();
+m.PI;       // undefined
+m.square;   // undefined
+```
+
+**When to use static:**
+- Utility functions that don't need instance data (like `Math.max`, `Math.random`)
+- Factory methods that create instances
+- Constants shared across all instances
+- Counters or caches at the class level
+```javascript
+class User {
+  static count = 0;
+
+  constructor(name) {
+    this.name = name;
+    User.count++; // track total instances created
+  }
+
+  static getCount() {
+    return User.count;
+  }
+}
+
+new User("Akshai");
+new User("Kumar");
+User.getCount(); // 2
+```
+
+### Private fields and methods
+
+Properties prefixed with `#` are truly private — not accessible outside the class. This is a recent addition to JavaScript (ES2022).
+```javascript
+class BankAccount {
+  #balance;        // private field
+  #accountNumber;
+
+  constructor(accountNumber, initialBalance) {
+    this.#accountNumber = accountNumber;
+    this.#balance = initialBalance;
+  }
+
+  deposit(amount) {
+    if (amount <= 0) throw new Error("Invalid amount");
+    this.#balance += amount;
+    this.#logTransaction("deposit", amount);
+  }
+
+  withdraw(amount) {
+    if (amount > this.#balance) throw new Error("Insufficient funds");
+    this.#balance -= amount;
+    this.#logTransaction("withdrawal", amount);
+  }
+
+  get balance() {
+    return this.#balance;
+  }
+
+  // Private method
+  #logTransaction(type, amount) {
+    console.log(`${type}: ${amount}, Balance: ${this.#balance}`);
+  }
+}
+
+const account = new BankAccount("ACC001", 1000);
+account.deposit(500);     // "deposit: 500, Balance: 1500"
+account.balance;          // 1500 — via getter
+account.#balance;         // ❌ SyntaxError — private field
+account.#logTransaction;  // ❌ SyntaxError — private method
+```
+
+**Before `#` existed, developers used closures or naming conventions:**
+```javascript
+// Convention only — not actually private (anyone can access)
+class User {
+  constructor(name) {
+    this._name = name; // underscore = "please don't touch" (but you can)
+  }
+}
+
+// Closure — actually private but awkward
+class User {
+  constructor(name) {
+    let _name = name; // truly private via closure
+    this.getName = () => _name;
+  }
+}
+```
+
+### Class inheritance
+
+The `extends` keyword creates a child class that inherits from a parent class. `super` calls the parent's constructor or methods.
+```javascript
+class Animal {
+  constructor(name) {
+    this.name = name;
+  }
+
+  speak() {
+    return `${this.name} makes a sound`;
+  }
+
+  toString() {
+    return `[Animal: ${this.name}]`;
+  }
+}
+
+class Dog extends Animal {
+  constructor(name, breed) {
+    super(name);       // MUST call super() before using `this`
+    this.breed = breed;
+  }
+
+  speak() {
+    return `${this.name} barks`;  // overrides parent method
+  }
+
+  fetch() {
+    return `${this.name} fetches the ball`;
+  }
+}
+
+class GuideDog extends Dog {
+  constructor(name, breed, owner) {
+    super(name, breed);
+    this.owner = owner;
+  }
+
+  assist() {
+    return `${this.name} guides ${this.owner}`;
+  }
+}
+
+const dog = new Dog("Rex", "Labrador");
+dog.speak();    // "Rex barks" — overridden method
+dog.toString(); // "[Animal: Rex]" — inherited from Animal
+
+const guide = new GuideDog("Buddy", "Retriever", "Akshai");
+guide.speak();  // "Buddy barks" — inherited from Dog
+guide.assist(); // "Buddy guides Akshai" — own method
+
+// Prototype chain
+guide instanceof GuideDog; // true
+guide instanceof Dog;      // true
+guide instanceof Animal;   // true
+guide instanceof Object;   // true
+```
+
+📢 NOTES:
+
+> `super()` must be called in the child constructor before accessing `this`. Otherwise you get a ReferenceError. This is because the child doesn't create its own `this` — it gets it from the parent via `super()`.
+```javascript
+class Child extends Parent {
+  constructor() {
+    this.name = "test"; // ❌ ReferenceError — must call super() first
+    super();
+  }
+}
+```
+
+### Calling parent methods with super
+```javascript
+class Animal {
+  speak() {
+    return "Some generic sound";
+  }
+}
+
+class Dog extends Animal {
+  speak() {
+    const parentSound = super.speak(); // call parent's version
+    return `${parentSound}... actually, WOOF!`;
+  }
+}
+
+new Dog().speak(); // "Some generic sound... actually, WOOF!"
+```
+
+### Static methods and inheritance
+
+Static methods are also inherited by child classes:
+```javascript
+class Animal {
+  static create(name) {
+    return new this(name); // `this` refers to the class being called
+  }
+
+  constructor(name) {
+    this.name = name;
+  }
+}
+
+class Dog extends Animal {
+  constructor(name) {
+    super(name);
+    this.type = "dog";
+  }
+}
+
+const animal = Animal.create("Generic");  // Animal instance
+const dog = Dog.create("Rex");            // Dog instance — static method inherited
+console.log(dog.type);                    // "dog"
+```
+
+### Classes vs Prototypes — when to use which
+```
+Feature                  | Class syntax        | Prototype pattern
+-------------------------|---------------------|-------------------
+Readability              | Clean, familiar     | Verbose
+Private fields           | #field              | Closures (workaround)
+Static members           | static keyword      | Constructor.prop
+Inheritance              | extends + super     | Object.create + call
+Hoisting                 | No (TDZ)            | Yes (function declarations)
+Under the hood           | Prototypes          | Prototypes
+```
+
+In modern JavaScript, use classes for most object-oriented code. Use raw prototypes only when you need something classes can't do (like dynamic prototype manipulation) or when working with legacy codebases.
+
+### Mixins — multiple inheritance workaround
+
+JavaScript doesn't support multiple inheritance (a class can only extend one parent). Mixins are a pattern to work around this:
+```javascript
+const Serializable = (Base) => class extends Base {
+  serialize() {
+    return JSON.stringify(this);
+  }
+
+  static deserialize(json) {
+    return Object.assign(new this(), JSON.parse(json));
+  }
+};
+
+const Validatable = (Base) => class extends Base {
+  validate() {
+    for (const [key, value] of Object.entries(this)) {
+      if (value === null || value === undefined) {
+        throw new Error(`${key} is required`);
+      }
+    }
+    return true;
+  }
+};
+
+// Compose multiple behaviors
+class User extends Serializable(Validatable(class {})) {
+  constructor(name, email) {
+    super();
+    this.name = name;
+    this.email = email;
+  }
+}
+
+const user = new User("Akshai", "akshai@email.com");
+user.validate();    // true — from Validatable
+user.serialize();   // '{"name":"Akshai","email":"akshai@email.com"}' — from Serializable
+```
+
+📢 NOTES:
+
+> This is the same compose pattern from the Compose and Pipe section — `Serializable(Validatable(Base))` is function composition applied to classes.
 
 # Event loop
 
