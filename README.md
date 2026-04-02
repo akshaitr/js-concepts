@@ -1957,7 +1957,7 @@ Event propagation has three phases:
 3. **Bubbling phase** — event travels back up from the target to `window`
 ```
          Capturing ↓                    ↑ Bubbling
-         ┌──────────────────────────────────────┐
+         ┌───────────────────────────────────────┐
          │ window                                │
          │  ┌───────────────────────────────────┐│
          │  │ document                          ││
@@ -1974,7 +1974,7 @@ Event propagation has three phases:
          │  │  │  └─────────────────────────────┘│
          │  │  └────────────────────────────────┘│
          │  └───────────────────────────────────┘│
-         └──────────────────────────────────────┘
+         └───────────────────────────────────────┘
 ```
 
 By default, event listeners fire during the **bubbling phase** (bottom up).
@@ -2560,8 +2560,9 @@ See the code for [pipe function](https://github.com/akshaitr/js-polyfills/blob/m
 
 # Prototypes
 
-JavaScript implements inheritance by using objects. Each object has an internal link to another object called its prototype. That prototype object has a prototype of its own, and so on until an object is reached with null as its prototype.
+Every object in JavaScript has a hidden internal link to another object called its **prototype**. When you access a property or method on an object, JavaScript first looks on the object itself. If it doesn't find it, it follows the prototype link and looks there. This continues up the chain until it either finds the property or reaches `null`.
 
+This is called the **prototype chain** — and it's how JavaScript implements inheritance.
 ```javascript
 const myObject = {
   city: "Madrid",
@@ -2570,77 +2571,356 @@ const myObject = {
   },
 };
 
-myObject.greet();
-
-myObject.toString();
+myObject.greet();      // ✅ found on myObject itself
+myObject.toString();   // ✅ found on Object.prototype (inherited)
+myObject.someMethod(); // ❌ not found anywhere in chain → TypeError
 ```
 
-### Prototype inheritance
+**How did `toString()` work?** We never defined it on `myObject`. JavaScript looked up the prototype chain:
+```
+myObject                    → doesn't have toString()
+  └── Object.prototype      → has toString() ✅
+        └── null             (end of chain)
+```
 
-Constructor functions in JavaScript are used to create an object with specific properties and methods.
+### Visualizing the prototype chain
+```javascript
+const arr = [1, 2, 3];
 
+// Where does .map() come from?
+arr.map(n => n * 2);
+```
+```
+arr (instance)
+  └── Array.prototype        → has map(), filter(), reduce(), push(), etc.
+        └── Object.prototype  → has toString(), hasOwnProperty(), etc.
+              └── null         (end of chain)
+```
+```javascript
+function greet() {
+  console.log("Hello");
+}
+
+// Where does .call() come from?
+greet.call(someObj);
+```
+```
+greet (function instance)
+  └── Function.prototype      → has call(), apply(), bind()
+        └── Object.prototype   → has toString(), hasOwnProperty()
+              └── null
+```
+
+Everything in JavaScript eventually chains back to `Object.prototype`, and `Object.prototype`'s prototype is `null` — that's where the chain ends.
+
+### `__proto__` vs `prototype`
+
+These two are easily confused but serve very different purposes:
+
+**`__proto__`** — exists on every object. It's a pointer to that object's prototype (the object it inherits from).
+
+**`prototype`** — exists only on functions. It's the object that will become the `__proto__` of instances created with `new`.
+```javascript
+function Person(name) {
+  this.name = name;
+}
+
+Person.prototype.greet = function() {
+  return `Hi, I'm ${this.name}`;
+};
+
+const p = new Person("Akshai");
+
+// p.__proto__ points to Person.prototype
+console.log(p.__proto__ === Person.prototype); // true
+
+// Person.prototype.__proto__ points to Object.prototype
+console.log(Person.prototype.__proto__ === Object.prototype); // true
+
+// Object.prototype.__proto__ is null — end of chain
+console.log(Object.prototype.__proto__ === null); // true
+```
+```
+p (instance)
+  │
+  │ p.__proto__
+  ▼
+Person.prototype          { greet() }
+  │
+  │ Person.prototype.__proto__
+  ▼
+Object.prototype          { toString(), hasOwnProperty(), ... }
+  │
+  │ Object.prototype.__proto__
+  ▼
+null
+```
+
+📢 NOTES:
+
+> `__proto__` is the legacy way to access an object's prototype. The modern methods are:
+> - `Object.getPrototypeOf(obj)` — read the prototype
+> - `Object.setPrototypeOf(obj, proto)` — set the prototype
+> - `Object.create(proto)` — create a new object with a specific prototype
+
+### Constructor functions and prototypes
+
+Constructor functions are the original way JavaScript handled "classes" before the `class` keyword existed.
 ```javascript
 function Box(value) {
   this.value = value;
 }
 
-Box.prototype.getValue = function () {
+Box.prototype.getValue = function() {
   return this.value;
 };
 
+Box.prototype.setValue = function(newValue) {
+  this.value = newValue;
+};
+
 const box1 = new Box(1);
+const box2 = new Box(2);
+
+box1.getValue(); // 1
+box2.getValue(); // 2
 ```
 
-Constructors are functions called with `new`. When a function is called with the `new` keyword, it will do the following things:
-  - Creates a blank, plain JavaScript object i.e., a new instance
-  - Points the prototype of the new instance to the constructor function's prototype
-  - Executes the constructor function with the given arguments, binding the new instance as `this` context
+**Why define methods on `prototype` instead of inside the constructor?**
+```javascript
+// BAD — creates a new function for EVERY instance
+function Box(value) {
+  this.value = value;
+  this.getValue = function() {
+    return this.value;
+  };
+}
 
-📢 NOTES: 
+const box1 = new Box(1);
+const box2 = new Box(2);
+box1.getValue === box2.getValue; // false — two separate functions in memory
 
-> To be a constructor, a function object must have a [[Construct]] internal method.
-Functions created with the function keyword are constructors, as are some built-in functions such as Date. These are the functions you can use with new.
-Other function objects do not have a [[Construct]] internal method. These include arrow functions. So you can't use new with these. This makes sense since you can't set the this value of an arrow function.
+// GOOD — all instances share ONE function on the prototype
+function Box(value) {
+  this.value = value;
+}
 
-### `__proto__` vs prototype
+Box.prototype.getValue = function() {
+  return this.value;
+};
 
-`__proto__` is an object property that points to the prototype of that object. It is used for inheritance and allows accessing the prototype chain.
+const box3 = new Box(3);
+const box4 = new Box(4);
+box3.getValue === box4.getValue; // true — same function, shared via prototype
+```
 
-prototype is a property that exist on the constructor function and is used to set an inheritance for the object created by the constructor function. It is used to define shared properties and methods for instances.
+If you create 1000 instances, the bad approach creates 1000 copies of `getValue` in memory. The prototype approach has just one copy shared by all instances.
+
+### What `new` does behind the scenes
+
+When a function is called with `new`, JavaScript does four things:
+```javascript
+function Person(name) {
+  // 1. Creates a new empty object: {}
+  // 2. Sets the new object's __proto__ to Person.prototype
+  // 3. Binds `this` to the new object and executes the constructor
+  this.name = name;
+  // 4. Returns `this` (unless the constructor explicitly returns an object)
+}
+
+// Simulating what new does:
+function simulateNew(Constructor, ...args) {
+  const obj = {};                                    // step 1
+  Object.setPrototypeOf(obj, Constructor.prototype); // step 2
+  const result = Constructor.apply(obj, args);       // step 3
+  return result instanceof Object ? result : obj;    // step 4
+}
+```
+
+📢 NOTES:
+
+> Arrow functions don't have a `prototype` property and can't be used with `new`. This makes sense because arrow functions don't have their own `this`, which is essential for constructors.
+```javascript
+const Person = (name) => {
+  this.name = name;
+};
+
+new Person("Akshai"); // ❌ TypeError: Person is not a constructor
+```
+
+### Prototype inheritance
+
+Objects can inherit from other objects through the prototype chain:
+```javascript
+function Animal(name) {
+  this.name = name;
+}
+
+Animal.prototype.speak = function() {
+  return `${this.name} makes a sound`;
+};
+
+function Dog(name, breed) {
+  Animal.call(this, name); // call parent constructor with this context
+  this.breed = breed;
+}
+
+// Set up inheritance — Dog.prototype inherits from Animal.prototype
+Dog.prototype = Object.create(Animal.prototype);
+
+// Fix the constructor reference (it got overwritten in the line above)
+Dog.prototype.constructor = Dog;
+
+// Add Dog-specific methods
+Dog.prototype.fetch = function() {
+  return `${this.name} fetches the ball`;
+};
+
+const dog = new Dog("Rex", "Labrador");
+dog.speak();  // "Rex makes a sound" — inherited from Animal
+dog.fetch();  // "Rex fetches the ball" — own method
+```
+```
+dog (instance)
+  └── Dog.prototype        → has fetch()
+        └── Animal.prototype → has speak()
+              └── Object.prototype
+                    └── null
+```
+
+### instanceof
+
+Checks if an object exists anywhere in the prototype chain of a constructor.
+```javascript
+console.log(dog instanceof Dog);    // true
+console.log(dog instanceof Animal); // true
+console.log(dog instanceof Object); // true
+
+// instanceof walks up the prototype chain:
+// dog.__proto__ === Dog.prototype? → yes → true for Dog
+// Dog.prototype.__proto__ === Animal.prototype? → yes → true for Animal
+// Animal.prototype.__proto__ === Object.prototype? → yes → true for Object
+```
+
+### hasOwnProperty vs `in`
+```javascript
+function Person(name) {
+  this.name = name;
+}
+
+Person.prototype.greet = function() {
+  return `Hi, I'm ${this.name}`;
+};
+
+const p = new Person("Akshai");
+
+// hasOwnProperty — only checks the object itself, not the chain
+p.hasOwnProperty("name");  // true — defined on p directly
+p.hasOwnProperty("greet"); // false — greet is on the prototype
+
+// in operator — checks the entire prototype chain
+"name" in p;   // true
+"greet" in p;  // true — found on prototype
+```
+
+This distinction matters when iterating over objects:
+```javascript
+for (const key in p) {
+  console.log(key); // "name", "greet" — includes inherited properties
+}
+
+for (const key in p) {
+  if (p.hasOwnProperty(key)) {
+    console.log(key); // "name" — only own properties
+  }
+}
+
+// Modern alternative
+Object.keys(p);    // ["name"] — only own enumerable properties
+Object.values(p);  // ["Akshai"]
+Object.entries(p);  // [["name", "Akshai"]]
+```
+
+### Object.create()
+
+Creates a new object with a specified prototype. A cleaner alternative to constructor functions for simple inheritance.
+```javascript
+const animal = {
+  speak() {
+    return `${this.name} makes a sound`;
+  }
+};
+
+const dog = Object.create(animal);
+dog.name = "Rex";
+dog.fetch = function() {
+  return `${this.name} fetches the ball`;
+};
+
+dog.speak(); // "Rex makes a sound" — inherited from animal
+dog.fetch(); // "Rex fetches the ball" — own method
+
+// Creating an object with NO prototype
+const bare = Object.create(null);
+bare.toString; // undefined — no prototype chain at all
+```
 
 ### setPrototypeOf()
 
-A method used to set the prototype of a specified object to another object or null. It allows changing the prototype dynamically after an object has been created.
-
+Dynamically changes an object's prototype after creation. Use sparingly — it's slow and can cause unexpected behavior.
 ```javascript
 const user = {
   name: "Akshai",
   age: 28,
 };
 
-const adminUser = { isAdmin: true };
+const adminUser = {
+  isAdmin: true,
+  deleteUser() {
+    return "User deleted";
+  }
+};
 
-console.log(user.isAdmin);
-// Expected output: undefined
+console.log(user.isAdmin); // undefined
 
 Object.setPrototypeOf(user, adminUser);
 
-console.log(user.isAdmin);
-// Expected output: true
+console.log(user.isAdmin);      // true — inherited from adminUser
+console.log(user.deleteUser());  // "User deleted"
+console.log(user.name);          // "Akshai" — own property still works
 ```
 
-### instanceof
+📢 NOTES:
 
-An operator that checks if an object is an instance of a specific constructor or it's prototype chain. It returns true if the object is an instance of the constructor or a constructor's prototype chain.
-```text
-Function: Person
- └── .prototype → { sayHello }
+> `Object.setPrototypeOf()` is discouraged in performance-critical code. V8 and other engines optimize objects based on their prototype chain at creation time. Changing it later forces the engine to deoptimize. Prefer `Object.create()` to set the prototype at creation time.
 
-Object: p1 (created using new Person())
- └── .__proto__ → Person.prototype
-                         └── .__proto__ → Object.prototype
-
+### Prototype chain complete picture
 ```
+                          ┌──────────────────────┐
+                          │         null         │
+                          └──────────┬───────────┘
+                                     │
+                          ┌──────────▼────────────┐
+                          │  Object.prototype     │
+                          │  toString()           │
+                          │  hasOwnProperty()     │
+                          │  valueOf()            │
+                          └──────────┬────────────┘
+                    ┌────────────────┼──────────────────┐
+                    │                │                  │
+         ┌──────────▼──────┐  ┌─────▼─────────┐  ┌────▼──────────┐
+         │ Array.prototype │  │Function.proto │  │ Your object   │
+         │ map()           │  │ call()        │  │ { key: val }  │
+         │ filter()        │  │ apply()       │  └───────────────┘
+         │ reduce()        │  │ bind()        │
+         └────────┬────────┘  └───────────────┘
+                  │
+         ┌────────▼────────┐
+         │ [1, 2, 3]       │
+         │ (array instance)│
+         └─────────────────┘
+```
+
 # Class and constructors
 
 A class is a blueprint that defines the structure and behavior of an object. Objects are instances of a class and possess the properties and methods defined by that class.
