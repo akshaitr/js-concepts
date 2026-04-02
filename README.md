@@ -14,6 +14,7 @@
 12. [Prototypes](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#prototypes)
 13. [Classes and constructors](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#class-and-constructors)
 14. [Event Loop](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#event-loop)
+15. [Error Handling](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#error-handling)
 
 # Execution Context
 
@@ -3674,4 +3675,158 @@ new Promise((resolve) => {
 });
 
 console.log("script end");
+```
+
+# Error Handling
+
+### try, catch, finally
+```javascript
+try {
+  const data = JSON.parse("invalid json");
+} catch (error) {
+  console.log(error.name);    // "SyntaxError"
+  console.log(error.message); // "Unexpected token i in JSON at position 0"
+  console.log(error.stack);   // full stack trace
+} finally {
+  console.log("Always runs"); // runs whether error occurred or not
+}
+```
+
+📢 NOTES:
+
+> `finally` runs even if `try` or `catch` has a `return` statement:
+```javascript
+function demo() {
+  try {
+    return "from try";
+  } finally {
+    console.log("finally runs"); // this STILL runs
+  }
+}
+
+demo(); // logs "finally runs", then returns "from try"
+```
+
+### Error types
+```javascript
+// Built-in error types
+new Error("Generic error");           // base error
+new SyntaxError("Bad syntax");        // invalid code
+new TypeError("Wrong type");          // wrong type operation
+new ReferenceError("Not defined");    // accessing undefined variable
+new RangeError("Out of range");       // number outside valid range
+new URIError("Bad URI");              // malformed URI
+
+// When do they occur?
+undefined.prop;               // TypeError — can't read property of undefined
+console.log(x);              // ReferenceError — x is not defined
+JSON.parse("{bad}");          // SyntaxError — unexpected token
+[].length = -1;              // RangeError — invalid array length
+decodeURIComponent("%");     // URIError — malformed URI sequence
+```
+
+### Custom errors
+```javascript
+class ValidationError extends Error {
+  constructor(field, message) {
+    super(message);
+    this.name = "ValidationError";
+    this.field = field;
+  }
+}
+
+class NotFoundError extends Error {
+  constructor(resource) {
+    super(`${resource} not found`);
+    this.name = "NotFoundError";
+    this.statusCode = 404;
+  }
+}
+
+// Usage
+function validateAge(age) {
+  if (typeof age !== "number") {
+    throw new ValidationError("age", "Age must be a number");
+  }
+  if (age < 0 || age > 150) {
+    throw new ValidationError("age", "Age must be between 0 and 150");
+  }
+}
+
+try {
+  validateAge("twenty");
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.log(`${error.field}: ${error.message}`);
+    // "age: Age must be a number"
+  } else {
+    throw error; // rethrow unexpected errors
+  }
+}
+```
+
+📢 NOTES:
+
+> Always rethrow errors you don't know how to handle. A catch block that swallows all errors silently hides bugs:
+```javascript
+// BAD — hides all errors
+try {
+  doSomething();
+} catch (error) {
+  console.log("Something went wrong"); // which error? no idea
+}
+
+// GOOD — handle known errors, rethrow unknown ones
+try {
+  doSomething();
+} catch (error) {
+  if (error instanceof ValidationError) {
+    showFieldError(error.field, error.message);
+  } else {
+    throw error; // let it propagate
+  }
+}
+```
+
+### Error handling in async code
+
+**Promises — use `.catch()`:**
+```javascript
+fetch("/api/user")
+  .then(res => res.json())
+  .then(data => console.log(data))
+  .catch(error => console.error("Fetch failed:", error));
+
+// .catch() at the end catches errors from ANY .then() in the chain
+```
+
+**async/await — use try/catch:**
+```javascript
+async function loadUser() {
+  try {
+    const res = await fetch("/api/user");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return data;
+  } catch (error) {
+    console.error("Failed to load user:", error);
+  }
+}
+```
+
+**Unhandled promise rejections:**
+```javascript
+// This promise rejection is NOT caught — it will crash Node.js
+// and show a warning in browsers
+Promise.reject("something failed");
+
+// Always handle rejections
+Promise.reject("something failed").catch(console.error);
+```
+```javascript
+// Global handler for uncaught promise rejections
+window.addEventListener("unhandledrejection", (event) => {
+  console.error("Unhandled rejection:", event.reason);
+  event.preventDefault(); // prevents default browser logging
+});
 ```
