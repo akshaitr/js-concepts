@@ -18,6 +18,7 @@
 16. [Generators and Iterators](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#generators-and-iterators)
 17. [WeakMap and WeakSet](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#weakmap-and-weakset)
 18. [Symbol](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#symbol)
+19. [Proxy and Reflect](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#proxy-and-reflect)
 
 # Execution Context
 
@@ -4231,3 +4232,152 @@ Symbol.keyFor(c); // undefined
 ```
 
 Use case: when separate parts of your code (or separate libraries) need to share the same Symbol.
+
+# Proxy and Reflect
+
+### Proxy
+
+A Proxy wraps an object and lets you intercept and customize operations performed on it — property access, assignment, function calls, and more.
+```javascript
+const user = {
+  name: "Akshai",
+  age: 28
+};
+
+const proxy = new Proxy(user, {
+  get(target, prop) {
+    console.log(`Accessing: ${prop}`);
+    return prop in target ? target[prop] : `Property ${prop} doesn't exist`;
+  },
+
+  set(target, prop, value) {
+    console.log(`Setting: ${prop} = ${value}`);
+    if (prop === "age" && typeof value !== "number") {
+      throw new TypeError("Age must be a number");
+    }
+    target[prop] = value;
+    return true;
+  }
+});
+
+proxy.name;           // logs "Accessing: name", returns "Akshai"
+proxy.unknown;        // logs "Accessing: unknown", returns "Property unknown doesn't exist"
+proxy.age = 29;       // logs "Setting: age = 29"
+proxy.age = "old";    // ❌ TypeError: Age must be a number
+```
+
+### Practical use cases
+
+**Validation:**
+```javascript
+function createValidated(schema) {
+  return new Proxy({}, {
+    set(target, prop, value) {
+      if (schema[prop]) {
+        const { type, required, min, max } = schema[prop];
+        if (type && typeof value !== type) {
+          throw new TypeError(`${prop} must be ${type}`);
+        }
+        if (min !== undefined && value < min) {
+          throw new RangeError(`${prop} must be >= ${min}`);
+        }
+        if (max !== undefined && value > max) {
+          throw new RangeError(`${prop} must be <= ${max}`);
+        }
+      }
+      target[prop] = value;
+      return true;
+    }
+  });
+}
+
+const user = createValidated({
+  age: { type: "number", min: 0, max: 150 },
+  name: { type: "string" }
+});
+
+user.name = "Akshai";  // ✅
+user.age = 28;         // ✅
+user.age = -5;         // ❌ RangeError: age must be >= 0
+user.age = "old";      // ❌ TypeError: age must be number
+```
+
+**Negative array indices:**
+```javascript
+function createNegativeArray(arr) {
+  return new Proxy(arr, {
+    get(target, prop) {
+      const index = Number(prop);
+      if (index < 0) {
+        return target[target.length + index];
+      }
+      return target[prop];
+    }
+  });
+}
+
+const arr = createNegativeArray([10, 20, 30, 40, 50]);
+arr[-1]; // 50 — last element (like Python)
+arr[-2]; // 40
+arr[0];  // 10 — positive indices work normally
+```
+
+**Observable objects (change detection):**
+```javascript
+function observable(target, onChange) {
+  return new Proxy(target, {
+    set(obj, prop, value) {
+      const oldValue = obj[prop];
+      obj[prop] = value;
+      onChange(prop, oldValue, value);
+      return true;
+    }
+  });
+}
+
+const state = observable({ count: 0 }, (prop, oldVal, newVal) => {
+  console.log(`${prop} changed: ${oldVal} → ${newVal}`);
+});
+
+state.count = 1;  // "count changed: 0 → 1"
+state.count = 5;  // "count changed: 1 → 5"
+```
+
+📢 NOTES:
+
+> This is conceptually how Vue.js reactivity works. Vue 2 used `Object.defineProperty()` and Vue 3 switched to Proxy for more comprehensive change detection.
+
+### Reflect
+
+Reflect provides methods that mirror Proxy traps. It gives you a clean way to perform default object operations.
+```javascript
+const user = { name: "Akshai" };
+
+// These do the same thing:
+user.name;                      // "Akshai"
+Reflect.get(user, "name");     // "Akshai"
+
+user.age = 28;                  // sets age
+Reflect.set(user, "age", 28); // sets age
+
+"name" in user;                 // true
+Reflect.has(user, "name");     // true
+
+delete user.age;                // deletes age
+Reflect.deleteProperty(user, "age"); // deletes age
+```
+
+**Why use Reflect?** Inside Proxy handlers, it's the correct way to forward operations to the original object:
+```javascript
+const proxy = new Proxy(user, {
+  get(target, prop, receiver) {
+    console.log(`Accessed: ${prop}`);
+    return Reflect.get(target, prop, receiver); // proper forwarding
+  },
+
+  set(target, prop, value, receiver) {
+    console.log(`Set: ${prop} = ${value}`);
+    return Reflect.set(target, prop, value, receiver); // proper forwarding
+  }
+});
+```
