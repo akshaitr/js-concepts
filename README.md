@@ -21,6 +21,7 @@
 19. [Proxy and Reflect](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#proxy-and-reflect)
 20. [Modules](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#modules)
 21. [Currying](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#currying)
+22. [Structured Clone and Data Copying](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#structured-clone-and-data-copying)
 
 # Execution Context
 
