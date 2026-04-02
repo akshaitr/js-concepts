@@ -23,6 +23,7 @@
 21. [Currying](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#currying)
 22. [Structured Clone and Data Copying](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#structured-clone-and-data-copying)
 23. [WeakRef and FinalizationRegistry](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#weakref-and-finalizationregistry)
+24. [SharedArrayBuffer and Atomics](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#sharedarraybuffer-and-atomics)
 
 # Execution Context
 
@@ -4856,3 +4857,62 @@ user = null;
 
 > WeakRef and FinalizationRegistry should be used sparingly — they're low-level tools for specific scenarios like caching and resource management. Don't use them for general application logic. GC behavior is unpredictable, so your code should never depend on the callback firing at a specific time.
 
+# SharedArrayBuffer and Atomics
+
+### The problem
+
+JavaScript is single-threaded, but Web Workers allow running code in parallel threads. The problem is that workers communicate by copying data — slow for large datasets.
+```javascript
+// Normal worker communication — copies the data
+const worker = new Worker("worker.js");
+const hugeArray = new Float64Array(1000000);
+worker.postMessage(hugeArray); // copies entire array — slow
+```
+
+### SharedArrayBuffer
+
+SharedArrayBuffer creates memory that multiple threads can access simultaneously — no copying needed.
+```javascript
+// Main thread
+const shared = new SharedArrayBuffer(1024); // 1KB shared memory
+const view = new Int32Array(shared);
+view[0] = 42;
+
+const worker = new Worker("worker.js");
+worker.postMessage(shared); // passes reference, no copy
+
+// worker.js
+onmessage = function(e) {
+  const view = new Int32Array(e.data);
+  console.log(view[0]); // 42 — reading from shared memory
+  view[0] = 100;        // main thread can see this change
+};
+```
+
+### Atomics — safe concurrent access
+
+When multiple threads read/write the same memory, you get race conditions. Atomics provides thread-safe operations.
+```javascript
+const shared = new SharedArrayBuffer(4);
+const view = new Int32Array(shared);
+
+// Without Atomics — race condition
+view[0]++;  // NOT safe — read, increment, write can be interrupted
+
+// With Atomics — guaranteed atomic
+Atomics.add(view, 0, 1);      // thread-safe increment
+Atomics.load(view, 0);        // thread-safe read
+Atomics.store(view, 0, 42);   // thread-safe write
+Atomics.compareExchange(view, 0, 42, 100); // if value is 42, set to 100
+```
+
+📢 NOTES:
+
+> SharedArrayBuffer requires specific HTTP headers due to Spectre vulnerability mitigations:
+> ```
+> Cross-Origin-Opener-Policy: same-origin
+> Cross-Origin-Embedder-Policy: require-corp
+> ```
+> Without these headers, SharedArrayBuffer is not available in the browser.
+
+> This is a niche topic — most frontend developers never use it directly. But understanding it is valuable because it explains how tools like `OffscreenCanvas`, WebAssembly threads, and high-performance computation work under the hood.
