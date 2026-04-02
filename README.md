@@ -19,6 +19,7 @@
 17. [WeakMap and WeakSet](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#weakmap-and-weakset)
 18. [Symbol](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#symbol)
 19. [Proxy and Reflect](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#proxy-and-reflect)
+20. [Modules](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#modules)
 
 # Execution Context
 
@@ -4381,3 +4382,122 @@ const proxy = new Proxy(user, {
   }
 });
 ```
+
+# Modules
+
+### CommonJS (CJS) — Node.js default
+```javascript
+// math.js — exporting
+const add = (a, b) => a + b;
+const subtract = (a, b) => a - b;
+
+module.exports = { add, subtract };
+
+// OR export individually
+exports.add = (a, b) => a + b;
+
+// app.js — importing
+const { add, subtract } = require("./math");
+add(1, 2); // 3
+```
+
+**Key characteristics:**
+- Synchronous loading — modules are loaded one at a time
+- Runs at runtime — `require()` can be inside conditionals
+- Returns a copy of the exported value
+- Used in Node.js by default
+```javascript
+// Conditional require — valid in CJS
+if (process.env.NODE_ENV === "development") {
+  const debugTools = require("./debug");
+}
+```
+
+### ES Modules (ESM) — modern standard
+```javascript
+// math.js — named exports
+export const add = (a, b) => a + b;
+export const subtract = (a, b) => a - b;
+
+// OR
+const add = (a, b) => a + b;
+const subtract = (a, b) => a - b;
+export { add, subtract };
+
+// Default export — one per file
+export default class Calculator {
+  add(a, b) { return a + b; }
+}
+
+// app.js — importing
+import { add, subtract } from "./math.js";
+import Calculator from "./math.js";      // default import
+import * as math from "./math.js";       // namespace import
+```
+
+**Key characteristics:**
+- Asynchronous loading — can be loaded in parallel
+- Runs at parse time — statically analyzed before execution
+- Returns a live binding (reference) — not a copy
+- Cannot use inside conditionals (static structure)
+- Used in browsers and modern Node.js
+```javascript
+// This is INVALID in ESM — imports must be at top level
+if (condition) {
+  import { add } from "./math.js"; // ❌ SyntaxError
+}
+
+// Use dynamic import() for conditional loading
+if (condition) {
+  const { add } = await import("./math.js"); // ✅ returns a Promise
+}
+```
+
+### CJS vs ESM
+```
+Feature         | CommonJS (CJS)          | ES Modules (ESM)
+----------------|-------------------------|-------------------
+Syntax          | require / module.exports| import / export
+Loading         | Synchronous             | Asynchronous
+Evaluation      | Runtime                 | Parse time (static)
+Exports         | Copy of value           | Live binding (reference)
+Conditional     | ✅require() anywhere    | ❌ static only (use dynamic import())
+Tree shaking    | ❌Not possible          | ✅ Dead code elimination
+Default in      | Node.js                 | Browsers, modern Node.js
+```
+
+### Live binding vs copy
+```javascript
+// CommonJS — exports a COPY
+// counter.js
+let count = 0;
+const increment = () => count++;
+module.exports = { count, increment };
+
+// app.js
+const { count, increment } = require("./counter");
+increment();
+console.log(count); // 0 — still the original copy
+
+// ES Modules — exports a LIVE BINDING
+// counter.js
+export let count = 0;
+export const increment = () => count++;
+
+// app.js
+import { count, increment } from "./counter.js";
+increment();
+console.log(count); // 1 — reflects the updated value
+```
+
+## Dynamic import
+```javascript
+// Lazy load a module — returns a Promise
+const module = await import("./heavyModule.js");
+module.doSomething();
+
+// React lazy loading uses this
+const LazyComponent = React.lazy(() => import("./HeavyComponent"));
+```
+
+This is what powers code splitting in React — `import()` tells the bundler to create a separate chunk that's loaded only when needed.
