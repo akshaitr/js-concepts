@@ -4668,3 +4668,114 @@ addTo10And20(3);                               // 33
 ```
 
 Currying always produces a chain of single-argument functions. Partial application fixes some arguments and lets you pass the rest in one call. The curry utility above actually supports both patterns.
+
+# Structured Clone and Data Copying
+
+### The three levels of copying
+
+**1. Assignment — no copy at all**
+```javascript
+const original = { name: "Akshai", hobbies: ["reading", "coding"] };
+const ref = original;
+
+ref.name = "Kumar";
+console.log(original.name); // "Kumar" — same object
+```
+
+**2. Shallow copy — copies top level only**
+```javascript
+const original = { name: "Akshai", hobbies: ["reading", "coding"] };
+const shallow = { ...original };
+
+shallow.name = "Kumar";
+console.log(original.name); // "Akshai" — top-level string is independent ✅
+
+shallow.hobbies.push("gaming");
+console.log(original.hobbies); // ["reading", "coding", "gaming"] — nested array is shared ❌
+```
+Shallow copy methods: spread operator `{ ...obj }`, `Object.assign({}, obj)`, `Array.from(arr)`, `[...arr]`
+
+**3. Deep copy — completely independent at every level**
+```javascript
+const original = { name: "Akshai", hobbies: ["reading", "coding"] };
+const deep = structuredClone(original);
+
+deep.hobbies.push("gaming");
+console.log(original.hobbies); // ["reading", "coding"] — completely independent ✅
+```
+
+### structuredClone — the modern way
+```javascript
+const original = {
+  name: "Akshai",
+  date: new Date(),
+  pattern: /hello/gi,
+  data: new Map([["key", "value"]]),
+  nested: { deep: { value: 42 } }
+};
+
+const clone = structuredClone(original);
+
+// Everything is deeply copied, including:
+// ✅ Nested objects and arrays
+// ✅ Date objects (remain Date, not string)
+// ✅ RegExp
+// ✅ Map, Set
+// ✅ ArrayBuffer, Blob
+// ✅ Circular references
+
+// Cannot clone:
+// ❌ Functions
+// ❌ DOM elements
+// ❌ Symbols
+// ❌ Property descriptors (getters/setters)
+// ❌ Prototype chain
+```
+
+### JSON.parse(JSON.stringify()) — the legacy way
+```javascript
+const clone = JSON.parse(JSON.stringify(original));
+
+// Limitations:
+// ❌ Functions → removed
+// ❌ undefined → removed
+// ❌ Symbol → removed
+// ❌ Date → becomes string
+// ❌ RegExp → becomes empty object {}
+// ❌ Map/Set → becomes empty object {}
+// ❌ NaN → becomes null
+// ❌ Infinity → becomes null
+// ❌ Circular references → throws error
+```
+```javascript
+const obj = {
+  fn: () => {},
+  date: new Date("2025-01-01"),
+  undef: undefined,
+  regex: /test/gi,
+  nan: NaN,
+  map: new Map([["a", 1]])
+};
+
+const clone = JSON.parse(JSON.stringify(obj));
+console.log(clone);
+// {
+//   date: "2025-01-01T00:00:00.000Z",  ← string, not Date
+//   regex: {},                           ← empty object
+//   nan: null,                           ← null
+//   map: {}                              ← empty object
+//   (fn and undef are gone)
+// }
+```
+
+### When to use what
+```
+Method                  | Depth   | Handles special types | Performance
+------------------------|---------|----------------------|------------
+= assignment            | None    | N/A                  | Instant
+{ ...obj }              | Shallow | N/A                  | Fast
+Object.assign()         | Shallow | N/A                  | Fast
+JSON parse/stringify    | Deep    | ❌ Many limitations   | Slow
+structuredClone()       | Deep    | ✅ Most types         | Medium
+Custom recursive clone  | Deep    | ✅ Full control       | Depends
+```
