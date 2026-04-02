@@ -3336,6 +3336,342 @@ user.serialize();   // '{"name":"Akshai","email":"akshai@email.com"}' — from S
 
 # Event loop
 
-Event loop in JavaScript is a mechanism responsible for managing asynchronous behavior in a single-threaded environment. It acts like a traffic controller, ensuring tasks are executed in an orderly manner by processing pending taks in queues(microtasks and macrotasks).
+JavaScript is single-threaded — it has one call stack and can execute one thing at a time. Yet it handles asynchronous operations like API calls, timers, and user events without blocking. The event loop is the mechanism that makes this possible.
 
-Event loop is necessary to handle asynchronous operations in JavaScript effectively. It manages task queues and microtask queues to ensure that tasks are executed efficiently wthout blocking the main thread.
+### The architecture
+```
+     ┌──────────────────────────┐
+     │       Call Stack         │  Executes synchronous code
+     │  (one thing at a time)   │  LIFO — Last In, First Out
+     └────────────┬─────────────┘
+                  │
+                  │ When async operation completes,
+                  │ callback is placed in a queue
+                  │
+     ┌────────────▼─────────────┐
+     │       Event Loop         │  Continuously checks:
+     │                          │  1. Is the call stack empty?
+     │  "traffic controller"    │  2. Is there anything in the queues?
+     │                          │  3. If both yes → move task to stack
+     └────────────┬─────────────┘
+                  │
+        ┌─────────┴────────┐
+        │                  │
+  ┌─────▼──────┐    ┌──────▼───────┐
+  │ Microtask  │    │  Macrotask   │
+  │   Queue    │    │    Queue     │
+  │            │    │              │
+  │ Higher     │    │ Lower        │
+  │ priority   │    │ priority     │
+  └────────────┘    └──────────────┘
+```
+
+### What goes where
+
+**Call Stack** — all synchronous code. Functions go on, execute, and come off.
+
+**Web APIs / Node APIs** — the browser (or Node.js) handles async operations outside of JavaScript. When you call `setTimeout`, `fetch`, or `addEventListener`, the browser takes over and tracks the operation. JavaScript continues executing the next line.
+
+**Microtask Queue** (high priority):
+- `Promise.then` / `.catch` / `.finally` callbacks
+- `queueMicrotask()`
+- `MutationObserver`
+- `async/await` continuations (code after `await`)
+
+**Macrotask Queue** (lower priority):
+- `setTimeout` / `setInterval`
+- `setImmediate` (Node.js)
+- I/O operations
+- UI rendering events
+- `requestAnimationFrame` (runs before repaint but after microtasks)
+
+### The event loop cycle
+```
+1. Execute all synchronous code on the call stack until it's empty
+         │
+         ▼
+2. Empty the ENTIRE microtask queue
+   (if a microtask adds another microtask, that runs too — before any macrotask)
+         │
+         ▼
+3. Run ONE macrotask from the macrotask queue
+         │
+         ▼
+4. Empty the ENTIRE microtask queue again
+         │
+         ▼
+5. Browser may repaint if needed
+         │
+         ▼
+6. Go back to step 3
+```
+
+The critical rule: **microtasks always run before the next macrotask**. The entire microtask queue is drained before a single macrotask runs.
+
+### Step-by-step example
+```javascript
+console.log("1");
+
+setTimeout(() => {
+  console.log("2");
+}, 0);
+
+Promise.resolve().then(() => {
+  console.log("3");
+});
+
+console.log("4");
+```
+
+**Walkthrough:**
+```
+Step 1: Call stack executes console.log("1")
+        Output: "1"
+
+Step 2: setTimeout callback → sent to Web API → after 0ms → placed in MACROTASK queue
+        Macrotask queue: [() => log("2")]
+
+Step 3: Promise.resolve().then() → callback placed in MICROTASK queue
+        Microtask queue: [() => log("3")]
+
+Step 4: Call stack executes console.log("4")
+        Output: "4"
+
+Step 5: Call stack is empty → event loop checks microtask queue first
+        Runs: console.log("3")
+        Output: "3"
+
+Step 6: Microtask queue is empty → event loop takes from macrotask queue
+        Runs: console.log("2")
+        Output: "2"
+
+Final output: "1", "4", "3", "2"
+```
+
+### setTimeout(fn, 0) doesn't mean "run immediately"
+
+It means "run as soon as possible after the current synchronous code and all microtasks finish." The `0` is the minimum delay, not a guarantee.
+```javascript
+console.log("start");
+
+setTimeout(() => {
+  console.log("timeout");
+}, 0);
+
+console.log("end");
+
+// Output: "start", "end", "timeout"
+// Even with 0ms delay, it goes to the macrotask queue
+// and waits for the call stack to clear
+```
+
+### Microtasks can starve macrotasks
+
+Because the entire microtask queue is drained before any macrotask runs, microtasks that keep adding more microtasks will block macrotasks indefinitely:
+```javascript
+// ⚠️ DANGEROUS — this will freeze the browser
+function blockForever() {
+  Promise.resolve().then(() => {
+    blockForever(); // adds a new microtask endlessly
+  });
+}
+
+blockForever();
+// setTimeout callbacks, click handlers, rendering — NOTHING will ever run
+// because the microtask queue never empties
+```
+
+This is different from a stack overflow. The call stack isn't growing — but the microtask queue is always full, so the event loop never gets to step 3.
+
+### Complex example — nested microtasks and macrotasks
+```javascript
+console.log("start");
+
+setTimeout(() => {
+  console.log("timeout 1");
+  Promise.resolve().then(() => {
+    console.log("promise inside timeout 1");
+  });
+}, 0);
+
+setTimeout(() => {
+  console.log("timeout 2");
+}, 0);
+
+Promise.resolve().then(() => {
+  console.log("promise 1");
+}).then(() => {
+  console.log("promise 2");
+});
+
+console.log("end");
+```
+
+**Walkthrough:**
+```
+Synchronous:
+  "start"
+  setTimeout → macrotask queue: [timeout1]
+  setTimeout → macrotask queue: [timeout1, timeout2]
+  Promise.resolve().then() → microtask queue: [promise1]
+  "end"
+
+Call stack empty → drain microtask queue:
+  "promise 1" → .then() chains → adds promise2 to microtask queue
+  "promise 2" → microtask queue now empty
+
+Run one macrotask:
+  "timeout 1" → Promise.resolve().then() adds to microtask queue
+
+Drain microtask queue:
+  "promise inside timeout 1"
+
+Run one macrotask:
+  "timeout 2"
+
+Final output:
+  "start"
+  "end"
+  "promise 1"
+  "promise 2"
+  "timeout 1"
+  "promise inside timeout 1"
+  "timeout 2"
+```
+
+Notice how `"promise inside timeout 1"` runs before `"timeout 2"`. Even though timeout 2 was queued first, the microtask created inside timeout 1 has higher priority and runs before the next macrotask.
+
+### async/await and the event loop
+
+`await` splits an async function into synchronous and asynchronous parts. Everything before the first `await` runs synchronously. Everything after `await` is scheduled as a microtask.
+```javascript
+async function demo() {
+  console.log("1 - before await"); // synchronous
+  await Promise.resolve();
+  console.log("2 - after await");  // microtask — same as .then()
+}
+
+console.log("3 - script start");
+demo();
+console.log("4 - script end");
+```
+**Walkthrough:**
+```
+"3 - script start"  → synchronous
+"1 - before await"   → synchronous (inside demo, before await)
+"4 - script end"     → synchronous (await paused demo, execution returns here)
+"2 - after await"    → microtask (continuation after await)
+
+Output: "3", "1", "4", "2"
+```
+
+Think of `await` as a `.then()` that splits the function:
+```javascript
+// This async function:
+async function demo() {
+  console.log("before");
+  await Promise.resolve();
+  console.log("after");
+}
+
+// Is essentially:
+function demo() {
+  console.log("before");
+  Promise.resolve().then(() => {
+    console.log("after");
+  });
+}
+```
+
+### queueMicrotask
+
+A direct way to add to the microtask queue without creating a promise:
+```javascript
+console.log("start");
+
+queueMicrotask(() => {
+  console.log("microtask");
+});
+
+console.log("end");
+
+// Output: "start", "end", "microtask"
+```
+
+Useful when you need something to run after the current synchronous code but before any macrotasks — without the overhead of creating a Promise.
+
+### requestAnimationFrame
+
+`requestAnimationFrame` (rAF) runs before the browser repaints — after microtasks but before the next macrotask from the timer queue. It syncs with the display refresh rate (~60fps).
+```javascript
+console.log("start");
+
+requestAnimationFrame(() => {
+  console.log("rAF");
+});
+
+setTimeout(() => {
+  console.log("timeout");
+}, 0);
+
+Promise.resolve().then(() => {
+  console.log("promise");
+});
+
+console.log("end");
+
+// Most likely output: "start", "end", "promise", "rAF", "timeout"
+// But rAF and timeout order can vary by browser
+```
+
+📢 NOTES:
+
+> The exact ordering of `requestAnimationFrame` relative to `setTimeout` can vary across browsers. The only guaranteed order is:
+> 1. Synchronous code always first
+> 2. Microtasks always before macrotasks
+> 3. rAF runs before repaint
+
+### Complete priority order
+```
+1. Synchronous code (call stack)
+       ↓
+2. Microtasks (Promise.then, queueMicrotask, await continuations)
+       ↓
+3. requestAnimationFrame (before repaint)
+       ↓
+4. Browser repaint / render
+       ↓
+5. Macrotasks (setTimeout, setInterval, I/O)
+       ↓
+   Back to step 2
+```
+
+${\textsf{\color{khaki}Guess\ the\ output}}$
+```javascript
+async function async1() {
+  console.log("async1 start");
+  await async2();
+  console.log("async1 end");
+}
+
+async function async2() {
+  console.log("async2");
+}
+
+console.log("script start");
+
+setTimeout(() => {
+  console.log("setTimeout");
+}, 0);
+
+async1();
+
+new Promise((resolve) => {
+  console.log("promise1");
+  resolve();
+}).then(() => {
+  console.log("promise2");
+});
+
+console.log("script end");
+```
