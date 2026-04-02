@@ -15,6 +15,7 @@
 13. [Classes and constructors](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#class-and-constructors)
 14. [Event Loop](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#event-loop)
 15. [Error Handling](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#error-handling)
+16. [Generators and Iterators](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#generators-and-iterators)
 
 # Execution Context
 
@@ -3829,4 +3830,167 @@ window.addEventListener("unhandledrejection", (event) => {
   console.error("Unhandled rejection:", event.reason);
   event.preventDefault(); // prevents default browser logging
 });
+```
+
+# Generators and Iterators
+
+### Iterables and the for...of loop
+
+An iterable is any object that implements the `Symbol.iterator` method. Arrays, strings, Maps, and Sets are all iterable. Plain objects are NOT.
+```javascript
+// These are iterable — work with for...of
+for (const char of "hello") console.log(char);     // h, e, l, l, o
+for (const num of [1, 2, 3]) console.log(num);     // 1, 2, 3
+for (const val of new Set([1, 2])) console.log(val); // 1, 2
+
+// Plain objects are NOT iterable
+for (const val of { a: 1 }) console.log(val); // ❌ TypeError: not iterable
+
+// Use Object.entries() to iterate objects
+for (const [key, val] of Object.entries({ a: 1, b: 2 })) {
+  console.log(key, val); // "a" 1, "b" 2
+}
+```
+
+### Custom iterator
+
+You can make any object iterable by implementing `Symbol.iterator`:
+```javascript
+const range = {
+  from: 1,
+  to: 5,
+
+  [Symbol.iterator]() {
+    let current = this.from;
+    const last = this.to;
+
+    return {
+      next() {
+        if (current <= last) {
+          return { value: current++, done: false };
+        }
+        return { done: true };
+      }
+    };
+  }
+};
+
+for (const num of range) {
+  console.log(num); // 1, 2, 3, 4, 5
+}
+
+// Also works with spread and destructuring
+console.log([...range]);          // [1, 2, 3, 4, 5]
+const [first, second] = range;   // first = 1, second = 2
+```
+
+The iterator protocol: an object with a `next()` method that returns `{ value, done }`. When `done` is `true`, iteration stops.
+
+### Generators
+
+A generator function is a special function that can pause and resume its execution. It produces values on demand using `yield`.
+```javascript
+function* numberGenerator() {
+  console.log("Start");
+  yield 1;
+  console.log("After first yield");
+  yield 2;
+  console.log("After second yield");
+  yield 3;
+  console.log("End");
+}
+
+const gen = numberGenerator(); // does NOT execute the function body
+
+gen.next(); // { value: 1, done: false } — runs until first yield, logs "Start"
+gen.next(); // { value: 2, done: false } — resumes, logs "After first yield"
+gen.next(); // { value: 3, done: false } — resumes, logs "After second yield"
+gen.next(); // { value: undefined, done: true } — resumes, logs "End"
+```
+
+📢 NOTES:
+
+> Calling a generator function returns a generator object — it doesn't execute the body. The body executes incrementally with each `.next()` call, pausing at each `yield`.
+
+### Generators are iterable
+```javascript
+function* fibonacci() {
+  let a = 0, b = 1;
+  while (true) {
+    yield a;
+    [a, b] = [b, a + b];
+  }
+}
+
+// Take first 8 fibonacci numbers
+const fib = fibonacci();
+for (let i = 0; i < 8; i++) {
+  console.log(fib.next().value);
+}
+// 0, 1, 1, 2, 3, 5, 8, 13
+
+// Using with spread (⚠️ only works with finite generators)
+function* range(start, end) {
+  for (let i = start; i <= end; i++) {
+    yield i;
+  }
+}
+
+console.log([...range(1, 5)]); // [1, 2, 3, 4, 5]
+```
+
+### Passing values into generators
+
+`yield` is two-way — it can send values out AND receive values in:
+```javascript
+function* conversation() {
+  const name = yield "What is your name?";
+  const age = yield `Hello ${name}! How old are you?`;
+  return `${name} is ${age} years old`;
+}
+
+const chat = conversation();
+console.log(chat.next());           // { value: "What is your name?", done: false }
+console.log(chat.next("Akshai"));   // { value: "Hello Akshai! How old are you?", done: false }
+console.log(chat.next(28));         // { value: "Akshai is 28 years old", done: true }
+```
+
+The argument to `.next()` becomes the value that `yield` evaluates to inside the generator.
+
+### Practical use cases
+
+**Unique ID generator:**
+```javascript
+function* idGenerator(prefix = "id") {
+  let id = 1;
+  while (true) {
+    yield `${prefix}_${id++}`;
+  }
+}
+
+const userId = idGenerator("user");
+userId.next().value; // "user_1"
+userId.next().value; // "user_2"
+userId.next().value; // "user_3"
+```
+
+**Paginated data fetching:**
+```javascript
+async function* fetchPages(url) {
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const res = await fetch(`${url}?page=${page}`);
+    const data = await res.json();
+    hasMore = data.hasMore;
+    page++;
+    yield data.items;
+  }
+}
+
+// Usage
+const pages = fetchPages("/api/users");
+const page1 = await pages.next(); // fetches page 1
+const page2 = await pages.next(); // fetches page 2 only when needed
 ```
