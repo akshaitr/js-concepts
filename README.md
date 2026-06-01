@@ -53,7 +53,7 @@ Every execution context has three components:
 3. **this binding** — determines what `this` refers to in that context.
    In GEC (browser): `this` = `window`
    In GEC (Node.js): `this` = `{}` (empty object in modules)
-   In FEC: depends on how the function is called (see Binding section)
+   In FEC: depends on how the function is called (see [Binding](https://github.com/akshaitr/JS-Concepts/blob/main/README.md#binding) section)
 
 ### Creation Phase vs Execution Phase
 
