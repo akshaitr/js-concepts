@@ -2607,7 +2607,7 @@ class User {
 const user = new User("Akshai", "akshai@email.com");
 
 user.greet();                // "Hi, I'm Akshai" — method call with ()
-user.displayName;            // "Akshai " — no () needed
+user.displayName;            // "Akshai akshai@email.com" — no () needed
 user.displayName = "Kumar kumar@email.com";
 user.name;                   // "Kumar"
 ```
